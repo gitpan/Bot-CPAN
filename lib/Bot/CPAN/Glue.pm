@@ -1,5 +1,5 @@
-# $Revision: 1.20 $
-# $Id: Glue.pm,v 1.20 2003/03/23 03:30:30 afoxson Exp $
+# $Rev: 74 $
+# $Id: Glue.pm 74 2003-07-23 00:05:07Z afoxson $
 
 # Bot::CPAN::Glue - Deep magic for Bot::CPAN
 # Copyright (c) 2003 Adam J. Foxson. All rights reserved.
@@ -16,7 +16,6 @@ package Bot::CPAN::Glue;
 require 5.006;
 
 use strict;
-use Digest::MD5;
 use POE;
 use vars qw(@ISA @EXPORT $VERSION %commands);
 use Bot::CPAN::BasicBot;
@@ -43,7 +42,7 @@ use Attribute::Handlers autotie => {
 	'__CALLER__::Admin'   => __PACKAGE__,
 };
 
-($VERSION) = '$Revision: 1.20 $' =~ /\s+(\d+\.\d+)\s+/;
+($VERSION) = sprintf "%.02f", (('$Rev: 74 $' =~ /\s+(\d+)\s+/)[0] / 100);
 @ISA       = qw(Bot::CPAN::BasicBot);
 
 local $^W;
@@ -142,7 +141,7 @@ sub _get_type {
 			$commands{$command}[PERM] & PUBLIC_NOTICE;
 	}
 
-	$type .= 'low' if $command and defined $commands{$command}[PERM] and
+	$type .= 'lo' if $command and defined $commands{$command}[PERM] and
 		$commands{$command}[PERM] & LOW_PRIO;
 
 	$self->log("DEBUG: _get_type" . (defined $command ? ": $command" : '') . (defined $type ? ": $type" : '') . "\n") if $self->debug;
@@ -219,7 +218,7 @@ sub _parse_command {
 			$cmds
 		)
 		(?:
-			(?:\s+(?:for|from|of|on|to))?
+			(?:\s+(?:for|from|of|on|to|contains))?
 			\s+
 			([^\s\?]+)
 		)?
@@ -357,12 +356,12 @@ sub _verify_usage {
 	if (defined $commands{$command}[PERM]) {
 		unless ($type & $commands{$command}[PERM]) {
 			if ($commands{$command}[PERM] & PUBLIC_COMMAND) {
-				$message->{body} = "'$command' is a public only command";
+				$message->{body} = "'$command' is a channel only command";
 				$self->_return($message);
 				return;
 			}
 			elsif ($commands{$command}[PERM] & PRIVATE_COMMAND) {
-				$message->{body} = "'$command' is a private only command";
+				$message->{body} = "'$command' is a /msg only command";
 				$self->_return($message);
 				return;
 			}
@@ -423,29 +422,6 @@ sub Public : ATTR(CODE) {
 	$commands{*{$_[1]}{NAME}}[PERM] |= PUBLIC_COMMAND;
 	$commands{*{$_[1]}{NAME}}[PERM] |= PUBLIC_NOTICE if $_[4] eq 'notice';
 	$commands{*{$_[1]}{NAME}}[PERM] |= PUBLIC_PRIVMSG if $_[4] eq 'privmsg';
-}
-
-# this is what you call one hell of a sanity check!
-
-BEGIN {
-
-	sub _check_patch_pci {
-		open FILE, $INC{'POE/Component/IRC.pm'} or
-			die "Can't open POE::Component::IRC patchee: $!";
-		binmode FILE;
-		die "\n\033[1m" .
-		"             => You aren't using the correct POE::Component::IRC. <=\033[m\007\n\n".
-		"Possible reasons:\n\n" .
-		"1 - You did not patch POE::Component::IRC.\n" .
-		"2 - You patched over an already patched POE::Component::IRC.\n" .
-		"3 - You are not using POE::Component::IRC 2.7.\n\n" .
-		"Reinstall POE::Component::IRC, and patch it from scratch.\n" .
-		"The patch file is located in etc/. See POD for details.\n\n" unless
-			Digest::MD5->new->addfile(*FILE)->hexdigest eq
-				'8267d47db2e11e764862c210b1a30487';
-	}
-
-	_check_patch_pci();
 }
 
 1;

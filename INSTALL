@@ -5,6 +5,7 @@ INSTALLATION
 
 To install this distribution type the following:
 
+    cpansign -v (optional; requires Module::Signature to be installed)
     perl Makefile.PL
     make
     make test
@@ -12,10 +13,10 @@ To install this distribution type the following:
 
 DEPENDENCIES
 
-    Net::NNTP 2.21
+    Net::NNTP 2.22
     Mail::Internet 1.58
     CPANPLUS 0.042
-    Attribute::Handlers 0.77
-    POE 0.22
-    POE::Component::IRC 2.7
-    Digest::MD5 2.20
+    Attribute::Handlers 0.78
+    POE 0.26
+    POE::Component::IRC 2.9
+    Module::Signature (optional; for distribution authenticity verification)

@@ -1,5 +1,20 @@
 Revision history for Perl extension Bot::CPAN.
 
+0.74  Sat Mar 22 23:31:47 2003
+      - It's no longer necessary to patch P::C::I for B::C to function. We
+        now have a dependency on POE::Component::IRC 2.9 (which now supports
+        prioritized messaging; fimmtiu++ dngor++)
+      - Integrated changes from Bot::BasicBot 0.05
+      - Added 'Last indice reload' stat to 'config'
+      - Fixed some issues with addressing
+      - Fixed a major issue with bots not correctly reindexing; in order to
+        fix the reindexing issue, it was necessary to make reload_indices
+        *not* fork
+      - Added bot-command 'modulelist', as in:
+        'cpan: modulelist contains Test::Reporter?'
+      - Changed verbage of 'public only' to 'channel only', and
+        'private only', to '/msg only'
+
 0.01_07-pre  Sat Mar 22 23:31:47 2003
          - ** Since there has been an API modification and pervasive changes
            made to this release it is marked as a pre-developer release. It

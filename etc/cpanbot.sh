@@ -5,7 +5,7 @@ PATH=$PATH:/sbin:/usr/sbin:/usr/local/sbin
 
 case "$1" in
 start)
-        su - cwest -c 'perl /usr/local/perl/cpanbot/cpan-upload.pl > /usr/local/perl/cpanbot/cpan-upload.log 2>&1 &'
+        su - yourusername -c 'perl /path/to/cpan-upload.pl > /path/to/cpan-upload.log 2>&1 &'
         ;;
 *)
         echo "Usage: `basename $0` {start}" >&2

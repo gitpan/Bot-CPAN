@@ -1,5 +1,5 @@
-# $Revision: 1.37 $
-# $Id: CPAN.pm,v 1.37 2003/03/23 05:03:36 afoxson Exp $
+# $Rev: 74 $
+# $Id: CPAN.pm 74 2003-07-23 00:05:07Z afoxson $
 
 # Bot::CPAN - provides CPAN services via IRC
 # Copyright (c) 2003 Adam J. Foxson. All rights reserved.
@@ -25,7 +25,7 @@ use Bot::CPAN::Glue;
 use vars qw(@ISA $VERSION);
 
 @ISA = qw(Bot::CPAN::Glue);
-$VERSION = '0.01_07-pre';
+($VERSION) = sprintf "%.02f", (('$Rev: 74 $' =~ /\s+(\d+)\s+/)[0] / 100);
 
 local $^W;
 
@@ -190,6 +190,7 @@ sub config :Private(notice) :Args(refuse) :Admin :LowPrio
 		$self->get('search_max_results'));
 	$self->_print($event, 'Servers: ' . join ', ', $self->servers);
 	$self->_print($event, 'Username: ' . $self->username);
+	$self->_print($event, 'Last indice reload: ' . $self->get('last_indice_reload'));
 }
 
 # this is called the moment we successfully connect to a server
@@ -325,11 +326,11 @@ sub help :Private(notice) :LowPrio :Args(optional)
 			}
 		}
 
-		$self->_print($event, "Public and Private commands: ".
+		$self->_print($event, "Channel and /msg commands: ".
 			(join ', ', @public_and_private)) if scalar @public_and_private > 0;
-		$self->_print($event, "Public only commands: ".
+		$self->_print($event, "Channel only commands: ".
 			(join ', ', @public)) if scalar @public > 0;
-		$self->_print($event, "Private only commands: ".
+		$self->_print($event, "/msg only commands: ".
 			(join ', ', @private)) if scalar @private > 0;
 	}
 	else {
@@ -345,6 +346,33 @@ sub language :Private(notice) :Public(privmsg) :Args(required)
 	return unless $language;
 
 	$self->_print($event, $language);
+}
+
+sub modulelist :Private(notice) :Public(privmsg) :Args(required)
+:Help('determines if a given module is in the Module List') {
+	my ($self, $event, $module) = @_;
+	my $cp = $self->get('cp');
+    my $details = $cp->details(modules => [$module]);
+
+	unless ($details->ok) {
+		$self->_print($event, "No such module: $module");
+		return;
+	}
+
+    my $desc = $details->rv->{$module}->{'Description'};
+    my $dev = $details->rv->{$module}->{'Development Stage'};
+    my $interface = $details->rv->{$module}->{'Interface Style'};
+    my $lang = $details->rv->{$module}->{'Language Used'};
+    my $support = $details->rv->{$module}->{'Support Level'};
+
+	if ($desc eq 'None given' and $dev eq 'Unknown' and
+		$interface eq 'Unknown' and $lang eq 'Unknown' and
+		$support eq 'Unknown') {
+		$self->_print($event, "No, $module is not in the module list");
+	}
+	else {
+		$self->_print($event, "Yes, $module is in the module list");
+	}
 }
 
 sub modules :Private(notice) :Fork :LowPrio :Args(required)
@@ -681,17 +709,9 @@ sub irc_dcc_start
 
 sub _reload_indices {
 	my $self = $_[OBJECT];
-
-	$self->forkit({
-		run => sub {
-			my $self = shift;
-			my $cp = $self->get('cp');
-
-			$cp->reload_indices(update_source => 1);
-		},
-		handler => '_fork_handler',
-		body => $self,
-	});
+	my $cp = $self->get('cp');
+	$cp->reload_indices(update_source => 1);
+	$self->set('last_indice_reload', scalar localtime);
 	$poe_kernel->delay_add('_reload_indices',
 		$self->get('reload_indices_interval'));
 }

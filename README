@@ -39,6 +39,14 @@ DESCRIPTION
     automatically inform the channels of new uploads to the CPAN (by
     default).
 
+IRC EXAMPLES
+      cpan: version of Test::Reporter
+      cpan: modulelist contains Test::Reporter
+      cpan: tests for Test::Reporter
+      cpan: details on Test::Reporter
+      cpan: path to Test::Reporter
+      cpan: readme from Test::Reporter
+
 METHODS
     * new
         This constructor returns a Bot::CPAN object, and is inherited from
@@ -137,6 +145,9 @@ COMMANDS
 
     * language
         retrieves the language of a module
+
+    * modulelist
+        determines if a given module is in the Module List
 
     * modules
         retrieves the modules created by a given author
@@ -261,14 +272,7 @@ POLICY CONTROL MECHANISM
       Games-Cryptoquote-1.30 by BOBO
 
 CAVEATS
-    At the moment, you'll need to patch POE::Component::IRC 2.7 in order to
-    get the prioritized messaging (which is required to prevent blocking
-    during sending back lots of data to users).
-
-    The patch has been sent to the upstream author. The patch can be found
-    in etc/.
-
-    Also, if you expect the bot to have very recent CPAN data, be sure that
+    If you expect the bot to have very recent CPAN data, be sure that
     CPANPLUS is set to get indexes directly from ftp.funet.fi.
 
     Bot::CPAN::BasicBot's alt_nicks doesn't do what you think. It's NOT for
@@ -285,7 +289,9 @@ TODO
       - Write more tests.
       - Defer adding 'bugs' command until CPANPLUS::Backend supports RT's API
       - I.e., http://rt.cpan.org/NoAuth/last10.txt?Queue=dist
-      - Prepare for non-developer release
+      - Add support for "pacing" (suggested by Spoon) i.e., if several uploads
+        occur at the same time, pace the reporting of such to a pre-determined
+        number of upload notification per minute
 
 COPYRIGHT
       Copyright (c) 2003 Adam J. Foxson. All rights reserved.
@@ -296,20 +302,19 @@ LICENSE
     under the same terms as Perl itself.
 
 SEE ALSO
-    * perl
-    * Attribute::Handlers
-    * Bot::BasicBot
-    * CPANPLUS
-    * Digest::MD5
-    * POE
-    * POE::Component::IRC
-    * Net::NNTP
-    * Mail::Internet
-
+    * the perl manpage
+    * the Attribute::Handlers manpage
+    * the Bot::BasicBot manpage
+    * the CPANPLUS manpage
+    * the POE manpage
+    * the POE::Component::IRC manpage
+    * the Net::NNTP manpage
+    * the Mail::Internet manpage
 AUTHOR
     Adam J. Foxson <afoxson@pobox.com>, with patches from Casey West
     <cwest@cpan.org> to support the latest POE versions, Randal Schwartz
     <merlyn@stonehenge.com> to support NNTP retrieval of CPAN uploads (as
     opposed to the old way of doing it via mailbox polling), and Rocco
-    Caputo <troc+cpan@pobox.com> that solved early-on blocking issues.
+    Caputo <troc+cpan@pobox.com> that solved early-on blocking issues, and
+    got the prioritized events patch into the P::C::I core..
 

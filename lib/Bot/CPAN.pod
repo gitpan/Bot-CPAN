@@ -43,6 +43,15 @@ Bot::CPAN is a POE based distribution that allows individuals on IRC to query
 the CPAN in a great number of different ways. Bot::CPAN will also automatically
 inform the channels of new uploads to the CPAN (by default).
 
+=head1 IRC EXAMPLES
+
+  cpan: version of Test::Reporter
+  cpan: modulelist contains Test::Reporter
+  cpan: tests for Test::Reporter
+  cpan: details on Test::Reporter
+  cpan: path to Test::Reporter
+  cpan: readme from Test::Reporter
+
 =head1 METHODS
 
 =over 4
@@ -179,6 +188,10 @@ provides instruction on how to use this bot
 =item * B<language>
 
 retrieves the language of a module
+
+=item * B<modulelist>
+
+determines if a given module is in the Module List
 
 =item * B<modules>
 
@@ -330,15 +343,8 @@ firmly in mind when you create regex's to match them:
 
 =head1 CAVEATS
 
-At the moment, you'll need to patch POE::Component::IRC 2.7 in order to get the
-prioritized messaging (which is required to prevent blocking during sending
-back lots of data to users).
-
-The patch has been sent to the upstream author. The patch can be found in
-etc/.
-
-Also, if you expect the bot to have very recent CPAN data, be sure that
-CPANPLUS is set to get indexes directly from ftp.funet.fi.
+If you expect the bot to have very recent CPAN data, be sure that CPANPLUS is
+set to get indexes directly from ftp.funet.fi.
 
 Bot::CPAN::BasicBot's alt_nicks doesn't do what you think. It's NOT for
 specifying alternate nicks to use for connecting to IRC if the one you chose
@@ -355,7 +361,9 @@ If you happen to find one please email me at afoxson@pobox.com. Thank you.
   - Write more tests.
   - Defer adding 'bugs' command until CPANPLUS::Backend supports RT's API
   - I.e., http://rt.cpan.org/NoAuth/last10.txt?Queue=dist
-  - Prepare for non-developer release
+  - Add support for "pacing" (suggested by Spoon) i.e., if several uploads
+    occur at the same time, pace the reporting of such to a pre-determined
+    number of upload notification per minute
 
 =head1 COPYRIGHT
 
@@ -379,8 +387,6 @@ the same terms as Perl itself.
 
 =item * L<CPANPLUS>
 
-=item * L<Digest::MD5>
-
 =item * L<POE>
 
 =item * L<POE::Component::IRC>
@@ -397,6 +403,7 @@ Adam J. Foxson E<lt>F<afoxson@pobox.com>E<gt>, with patches from Casey West
 E<lt>F<cwest@cpan.org>E<gt> to support the latest POE versions, Randal Schwartz
 E<lt>F<merlyn@stonehenge.com>E<gt> to support NNTP retrieval of CPAN uploads
 (as opposed to the old way of doing it via mailbox polling), and Rocco Caputo
-E<lt>F<troc+cpan@pobox.com>E<gt> that solved early-on blocking issues.
+E<lt>F<troc+cpan@pobox.com>E<gt> that solved early-on blocking issues, and got
+the prioritized events patch into the P::C::I core..
 
 =cut

@@ -1,3 +1,6 @@
+# $Rev: 63 $
+# $Id: BasicBot.pm 63 2003-07-12 09:09:15Z afoxson $
+
 package Bot::CPAN::BasicBot;
 
 require 5.006;
@@ -16,10 +19,10 @@ use constant IRCNAME   => "wanna";
 use constant ALIASNAME => "pony";
 
 use vars qw(@ISA @EXPORT $VERSION);
-@ISA = qw(Exporter);
+@ISA    = qw(Exporter);
 @EXPORT = qw(say emote);
 
-($VERSION) = '$Revision: 1.12 $' =~ /\s+(\d+\.\d+)\s+/;
+($VERSION) = sprintf "%.02f", (('$Rev: 63 $' =~ /\s+(\d+)\s+/)[0] / 100);
 
 =head1 NAME
 
@@ -39,7 +42,7 @@ Bot::CPAN::BasicBot - simple irc bot baseclass
                       nick      => "basicbot",
                       alt_nicks => ["bbot", "simplebot"],
                       username  => "bot",
-                      debug  => 0,
+                      debug => 0,
                       name      => "Yet Another Bot",
 
                       ignore_list => [qw(dipsy dadadodo laotse)],
@@ -68,24 +71,20 @@ with the value supplied.
 
 =cut
 
-sub new
-{
+sub new {
     my $class = shift;
-    my $this = bless {}, $class;
+    my $this  = bless {}, $class;
 
     # call the set methods
     my %args = @_;
-    foreach my $method (keys %args)
-    {
-      if ($this->can($method))
-      {
-        $this->$method($args{$method})
-      }
-      else
-      {
-        $this->{$method} = $args{$method};
-        #croak "Invalid argument '$method'";
-      }
+    foreach my $method ( keys %args ) {
+        if ( $this->can($method) ) {
+            $this->$method( $args{$method} );
+        } else {
+            $this->{$method} = $args{$method};
+
+            #croak "Invalid argument '$method'";
+        }
     }
 
     return $this;
@@ -97,42 +96,43 @@ Runs the bot.  Hands the control over to the POE core.
 
 =cut
 
-sub run
-{
-  my $this = shift;
+sub run {
+    my $this = shift;
 
-  # yep, we use irc
-  POE::Component::IRC->new( IRCNAME ) or
-      die "Can't instantiate new IRC component!\n";
+    # yep, we use irc
+    POE::Component::IRC->new(IRCNAME)
+      or die "Can't instantiate new IRC component!\n";
 
-  # create the callbacks to the object states
-  POE::Session->create( object_states => [ $this => { _start => "start_state",
-                                                      _stop  => "stop_state",
+    # create the callbacks to the object states
+    POE::Session->create(
+        object_states => [
+            $this => {
+                _start => "start_state",
+                _stop  => "stop_state",
 
-                                                      irc_001    => "irc_001_state",
-                                                      irc_msg    => "irc_said_state",
-                                                      irc_public => "irc_said_state",
-                                                      irc_ctcp_action => "irc_emoted_state",
+                irc_001         => "irc_001_state",
+                irc_msg         => "irc_said_state",
+                irc_public      => "irc_said_state",
+                irc_ctcp_action => "irc_emoted_state",
+                irc_ping        => "irc_ping_state",
+                reconnect       => "reconnect",
 
-                                                      irc_disconnected => "irc_disconnected_state",
-                                                      reconnect => "reconnect_state",
-                                                      irc_error        => "irc_error_state",
-                                                      irc_socketerr        => "irc_socketerr_state",
+                irc_disconnected => "irc_disconnected_state",
+                reconnect        => "reconnect_state",
+                irc_error        => "irc_error_state",
+                irc_socketerr    => "irc_socketerr_state",
 
-                                                      fork_close => "fork_close_state",
-                                                      fork_error => "fork_error_state"
-                                                    }
+                fork_close => "fork_close_state",
+                fork_error => "fork_error_state"
+            }
+        ]
+    );
 
-                                      ]);
+    # and say that we want to recive said messages
+    $poe_kernel->post( IRCNAME => register => 'all' );
 
-
-  # and say that we want to recive said messages
-  $poe_kernel->post( IRCNAME, 'regsiter', qw(msg public
-                                             join nick
-                                             connected disconnected error));
-
-  # run
-  $poe_kernel->run();
+    # run
+    $poe_kernel->run();
 }
 
 =item said($args)
@@ -196,8 +196,8 @@ sub said { undef }
 
 # default emoted will pass through to "said"
 sub emoted {
-  my ($self,$emoted_hashref) = @_;
-  $self->said($emoted_hashref);
+    my ( $self, $emoted_hashref ) = @_;
+    $self->said($emoted_hashref);
 }
 
 =item forkit
@@ -264,46 +264,54 @@ routine to pick them up and make sense of them.
 =cut
 
 sub forkit {
-  my $this = shift;
-  my $args = shift;
+    my $this = shift;
+    my $args;
+    if ( $#_ > 1 ) {
+        my %args = @_;
+        $args = \%args;
+    } else {
+        $args = shift;
+    }
 
-  return undef unless $args->{run};
+    return undef unless $args->{run};
 
-  $args->{handler}   = $args->{handler} || "fork_said";
-  $args->{arguments} = $args->{arguments} || [];
+    $args->{handler}   = $args->{handler}   || "fork_said";
+    $args->{arguments} = $args->{arguments} || [];
 
-  #install a new handler in the POE kernel pointing to
-  # $self->{$args{handler}}
-  $poe_kernel->state($args->{handler},$this);
+    #install a new handler in the POE kernel pointing to
+    # $self->{$args{handler}}
+    $poe_kernel->state( $args->{handler}, $this );
 
-  my $run;
-  if (ref($args->{run})=~/^CODE/) {
-    $run = sub { &{$args->{run}}($args->{body},@{$args->{arguments}}) };
-  } else {
-    $run = $args->{run};
-  }
+    my $run;
+    if ( ref( $args->{run} ) =~ /^CODE/ ) {
+        $run =
+          sub { &{ $args->{run} }( $args->{body}, @{ $args->{arguments} } ) };
+    } else {
+        $run = $args->{run};
+    }
 
-  my $wheel = POE::Wheel::Run->new
-      ( Program      => $run,
+    my $wheel = POE::Wheel::Run->new(
+        Program      => $run,
         StdoutFilter => POE::Filter::Line->new(),
         StderrFilter => POE::Filter::Line->new(),
         StdoutEvent  => "$args->{handler}",
         StderrEvent  => "fork_error",
         CloseEvent   => "fork_close"
-      );
+    );
 
-  # store the wheel object in our bot, so we can retrieve/delete easily
+    # store the wheel object in our bot, so we can retrieve/delete easily
 
-  $this->{forks}->{$wheel->ID} = {wheel   => $wheel,
-                                  args    => {
-                                              channel => $args->{channel},
-                                              who     => $args->{who},
-                                              address => $args->{address},
-                                              data => $args->{data},
-                                              userhost => $args->{userhost},
-                                             }
-                                 };
-  return undef;
+    $this->{forks}->{ $wheel->ID } = {
+        wheel => $wheel,
+        args  => {
+            channel => $args->{channel},
+            who     => $args->{who},
+            address => $args->{address},
+            data    => $args->{data},
+            userhost => $args->{userhost},
+        }
+    };
+    return undef;
 }
 
 =item say
@@ -345,44 +353,44 @@ pass it on to a handler.
 
 =cut
 
-sub say
-{
-  # If we're called without an object ref, then we're handling saying
-  # stuff from inside a forked subroutine, so we'll freeze it, and toss
-  # it out on STDOUT so that POE::Wheel::Run's handler can pick it up.
-  if (!ref($_[0])) {
-    print $_[0]."\n";
-    return 1;
-  }
+sub say {
 
-  # Otherwise, this is a standard object method
+    # If we're called without an object ref, then we're handling saying
+    # stuff from inside a forked subroutine, so we'll freeze it, and toss
+    # it out on STDOUT so that POE::Wheel::Run's handler can pick it up.
+    if ( !ref( $_[0] ) ) {
+        print $_[0] . "\n";
+        return 1;
+    }
 
-  my $this = shift;
-  my $args;
-  if ($#_ > 1) {
-    my %args = @_;
-    $args = \%args;
-  } else {
-    $args = shift;
-  }
+    # Otherwise, this is a standard object method
 
-  my $body = $args->{body};
+    my $this = shift;
+    my $args;
+    if ( $#_ > 1 ) {
+        my %args = @_;
+        $args = \%args;
+    } else {
+        $args = shift;
+    }
 
-  # add the "Foo: bar" at the start
-  $body = "$args->{who}: $body"
-    if ($args->{channel} ne "msg" and $args->{address});
+    my $body = $args->{body};
 
-  # work out who we're going to send the message to
-  my $who = ($args->{channel} eq "msg") ? $args->{who} : $args->{channel};
+    # add the "Foo: bar" at the start
+    $body = "$args->{who}: $body"
+      if ( $args->{channel} ne "msg" and $args->{address} );
 
-  unless ($who && $body) {
-    print STDERR "Can't PRIVMSG without target and body\n";
-    print STDERR " who = '$who'\n body = '$body'\n";
-    return;
-  }
+    # work out who we're going to send the message to
+    my $who = ( $args->{channel} eq "msg" ) ? $args->{who} : $args->{channel};
 
-  # post an event that will send the message
-  $poe_kernel->post( IRCNAME, 'privmsg', $who, $body);
+    unless ( $who && $body ) {
+        print STDERR "Can't PRIVMSG without target and body\n";
+        print STDERR " who = '$who'\n body = '$body'\n";
+        return;
+    }
+
+    # post an event that will send the message
+    $poe_kernel->post( IRCNAME, 'privmsg', $who, $body );
 }
 
 =item emote
@@ -393,30 +401,40 @@ C<emote> will return data to channel, but emoted (as if you'd said
 =cut
 
 sub emote {
-  # If we're called without an object ref, then we're handling emoting
-  # stuff from inside a forked subroutine, so we'll freeze it, and
-  # toss it out on STDOUT so that POE::Wheel::Run's handler can pick
-  # it up.
-  if (!ref($_[0])) {
-    print $_[0]."\n";
-    return 1;
-  }
 
-  # Otherwise, this is a standard object method
+    # If we're called without an object ref, then we're handling emoting
+    # stuff from inside a forked subroutine, so we'll freeze it, and
+    # toss it out on STDOUT so that POE::Wheel::Run's handler can pick
+    # it up.
+    if ( !ref( $_[0] ) ) {
+        print $_[0] . "\n";
+        return 1;
+    }
 
-  my ($this,$args) = @_;
+    # Otherwise, this is a standard object method
 
-  my $body = $args->{body};
+    my $this = shift;
+    my $args;
+    if ( $#_ > 1 ) {
+        my %args = @_;
+        $args = \%args;
+    } else {
+        $args = shift;
+    }
 
-  # Work out who we're going to send the message to
-  my $who = ($args->{channel} eq "msg") ? $args->{who} :
-                                          $args->{channel};
+    my $body = $args->{body};
 
-  # post an event that will send the message
-  # if there's a better way of sending actions i'd love to know - jw
-  # me too; i'll look at it in v0.5 - sb
+    # Work out who we're going to send the message to
+    my $who =
+      ( $args->{channel} eq "msg" )
+      ? $args->{who}
+      : $args->{channel};
 
-  $poe_kernel->post(IRCNAME, 'privmsg', $who, "\cAACTION ".$body."\cA");
+    # post an event that will send the message
+    # if there's a better way of sending actions i'd love to know - jw
+    # me too; i'll look at it in v0.5 - sb
+
+    $poe_kernel->post( IRCNAME, 'privmsg', $who, "\cAACTION " . $body . "\cA" );
 }
 
 =item fork_said
@@ -431,14 +449,14 @@ nice object interface.
 =cut
 
 sub fork_said {
-  my ($this,$body,$wheel_id) = @_[0, ARG0, ARG1];
-  chomp($body); # remove newline necessary to move data;
+    my ( $this, $body, $wheel_id ) = @_[ 0, ARG0, ARG1 ];
+    chomp($body);    # remove newline necessary to move data;
 
-  # pick up the default arguments we squirreled away earlier
-  my $args = $this->{forks}->{$wheel_id}->{args};
-  $args->{body}=$body;
+    # pick up the default arguments we squirreled away earlier
+    my $args = $this->{forks}->{$wheel_id}->{args};
+    $args->{body} = $body;
 
-  $this->say($args);
+    $this->say($args);
 }
 
 =item help
@@ -475,21 +493,14 @@ either accept an arrayref or a complete list as an argument.
 
 =item servers
 
-The servers we way to connect to. One will be picked randomly. Defaults to
+The servers we're going to connect to. One will be picked randomly. Defaults to
 "london.rhizomatic.net".
 
 =cut
 
-#sub server
-#{
-#  my $this = shift;
-#  $this->{server} = shift if @_;
-#  return $this->{server} || "london.rhizomatic.net"
-#}
-
 sub servers {
-	my $this = shift;
-	if (@_) {
+    my $this = shift;
+    if (@_) {
 		my @args = (ref $_[0] eq "ARRAY") ? @{$_[0]} : @_;
 		$this->{servers} = \@args;
 	}
@@ -502,11 +513,10 @@ The port we're going to use.  Defaults to "6667"
 
 =cut
 
-sub port
-{
-  my $this = shift;
-  $this->{port} = shift if @_;
-  return $this->{port} || "6667"
+sub port {
+    my $this = shift;
+    $this->{port} = shift if @_;
+    return $this->{port} || "6667";
 }
 
 =item nick
@@ -516,17 +526,15 @@ and numbers followed by the word "bot"
 
 =cut
 
-sub nick
-{
-  my $this = shift;
-  $this->{nick} = shift if @_;
-  return $this->{nick} ||= _random_nick();
+sub nick {
+    my $this = shift;
+    $this->{nick} = shift if @_;
+    return $this->{nick} ||= _random_nick();
 }
 
-sub _random_nick
-{
-  my @things = ('a'..'z');
-  return join '', (map { @things[rand @things] } 0..4), "bot";
+sub _random_nick {
+    my @things = ( 'a' .. 'z' );
+    return join '', ( map { @things[ rand @things ] } 0 .. 4 ), "bot";
 }
 
 =item alt_nicks
@@ -540,16 +548,15 @@ even though it isn't really.
 
 =cut
 
-sub alt_nicks
-{
-  my $this = shift;
-  if (@_)
-  {
-    # make sure we copy
-    my @args = (ref $_[0] eq "ARRAY") ? @{$_[0]} : @_;
-    $this->{alt_nicks} = \@args;
-  }
-  @{ $this->{alt_nicks} || [] }
+sub alt_nicks {
+    my $this = shift;
+    if (@_) {
+
+        # make sure we copy
+        my @args = ( ref $_[0] eq "ARRAY" ) ? @{ $_[0] } : @_;
+        $this->{alt_nicks} = \@args;
+    }
+    @{ $this->{alt_nicks} || [] };
 }
 
 =item username
@@ -559,18 +566,16 @@ will be the same as our nick.
 
 =cut
 
-sub username
-{
-  my $this = shift;
-  $this->{username} = shift if @_;
-  $this->{username} or $this->nick
+sub username {
+    my $this = shift;
+    $this->{username} = shift if @_;
+    $this->{username} or $this->nick;
 }
 
-sub debug
-{
-  my $this = shift;
-  $this->{debug} = shift if @_;
-  return $this->{debug} || 0;
+sub debug {
+	my $this = shift;
+	$this->{debug} = shift if @_;
+	return $this->{debug} || 0;
 }
 
 =item name
@@ -580,11 +585,10 @@ The name that the bot will identify itself as.  Defaults to
 
 =cut
 
-sub name
-{
-  my $this = shift;
-  $this->{name} = shift if @_;
-  $_[0]->{name} or $this->nick . " bot"
+sub name {
+    my $this = shift;
+    $this->{name} = shift if @_;
+    $_[0]->{name} or $this->nick . " bot";
 }
 
 =item channels
@@ -593,16 +597,15 @@ The channels we're going to connect to.
 
 =cut
 
-sub channels
-{
-  my $this = shift;
-  if (@_)
-  {
-    # make sure we copy
-    my @args = (ref $_[0] eq "ARRAY") ? @{$_[0]} : @_;
-    $this->{channels} = \@args;
-  }
-  @{ $this->{channels} || [] }
+sub channels {
+    my $this = shift;
+    if (@_) {
+
+        # make sure we copy
+        my @args = ( ref $_[0] eq "ARRAY" ) ? @{ $_[0] } : @_;
+        $this->{channels} = \@args;
+    }
+    @{ $this->{channels} || [] };
 }
 
 =item quit_message
@@ -611,11 +614,10 @@ The quit message.  Defaults to "Bye".
 
 =cut
 
-sub quit_message
-{
-  my $this = shift;
-  $this->{quit_message} = shift if @_;
-  defined ($this->{quit_message}) ? $this->{quit_message} : "Bye";
+sub quit_message {
+    my $this = shift;
+    $this->{quit_message} = shift if @_;
+    defined( $this->{quit_message} ) ? $this->{quit_message} : "Bye";
 }
 
 =item ignore_list
@@ -625,16 +627,15 @@ other bots.)  Useful for stopping bot cascades.
 
 =cut
 
-sub ignore_list
-{
-  my $this = shift;
-  if (@_)
-  {
-    # make sure we copy
-    my @args = (ref $_[0] eq "ARRAY") ? @{$_[0]} : @_;
-    $this->{ignore_list} = \@args;
-  }
-  @{ $this->{ignore_list} || []}
+sub ignore_list {
+    my $this = shift;
+    if (@_) {
+
+        # make sure we copy
+        my @args = ( ref $_[0] eq "ARRAY" ) ? @{ $_[0] } : @_;
+        $this->{ignore_list} = \@args;
+    }
+    @{ $this->{ignore_list} || [] };
 }
 
 =head2 States
@@ -651,56 +652,60 @@ Called when we start.  Used to fire a "connect to irc server event"
 =cut
 
 sub start_state {
-  my ($this, $kernel, $session) = @_[OBJECT, KERNEL, SESSION];
+    my ( $this, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
 
-  $this->log("Control session start\n");
+    $this->log("Control session start\n");
 
-  # Make an alias for our session, to keep it from getting GC'ed.
-  $kernel->alias_set( ALIASNAME );
+    # Make an alias for our session, to keep it from getting GC'ed.
+    $kernel->alias_set(ALIASNAME);
 
-  # Ask the IRC component to send us all IRC events it receives. This
-  # is the easy, indiscriminate way to do it.
-  $kernel->post( IRCNAME, 'register', 'all');
+    # Ask the IRC component to send us all IRC events it receives. This
+    # is the easy, indiscriminate way to do it.
+    $kernel->post(IRCNAME, 'register', 'all');
 
-  my $server = ($this->servers)[int(rand(scalar $this->servers))];
-  $this->log("Attempting to connect to: $server\n");
+	my $server = ($this->servers)[int(rand(scalar $this->servers))];
+	$this->log("Attempting to connect to: $server\n");
 
-  # Setting Debug to 1 causes P::C::IRC to print all raw lines of text
-  # sent to and received from the IRC server. Very useful for debugging.
-  $kernel->post( IRCNAME, 'connect', { Debug    => $this->debug,
-                                       Nick     => $this->nick,
-                                       Server   => $server,
-                                       Port     => $this->port,
-                                       Username => $this->username,
-                                       Ircname  => $this->name, }
-                           );
-  #$kernel->delay( 'reconnect', 20);
+    # Setting Debug to 1 causes P::C::IRC to print all raw lines of text
+    # sent to and received from the IRC server. Very useful for debugging.
+    $kernel->post(IRCNAME,'connect',
+        {
+            Debug    => $this->debug,
+            Nick     => $this->nick,
+            Server   => $server,
+            Port     => $this->port,
+            Username => $this->username,
+            Ircname  => $this->name,
+        }
+    );
+    $kernel->delay('reconnect', 500);
 
 }
 
-=item reconnect_state
-
-Called in order to try aggressive reconnecting. A little overhead
-here, because the bot just blindly tests whether it's connected every
-20 seconds, but it means that server drops will be picked up, and the
-bot will be far stabler during netsplits and random sever barfs.
-
-=cut
-
 sub reconnect_state {
-  my ($this, $kernel, $session) = @_[OBJECT, KERNEL, SESSION];
+    my ( $this, $kernel, $session ) = @_[ OBJECT, KERNEL, SESSION ];
 
-  my $server = ($this->servers)[int(rand(scalar $this->servers))];
-  $this->log("Attempting to connect to: $server\n");
+    $this->log("I think I've lost the server. restarting..\n");
 
-  $kernel->post( IRCNAME, 'connect', { Debug    => $this->debug,
-                                       Nick     => $this->nick,
-                                       Server   => $server,
-                                       Port     => $this->port,
-                                       Username => $this->username,
-                                       Ircname  => $this->name, }
-                           );
-  #$kernel->delay( 'reconnect', 20);
+    $kernel->call( IRCNAME, 'disconnect' );
+    $kernel->call( IRCNAME, 'shutdown' );
+    POE::Component::IRC->new(IRCNAME);
+    $kernel->post( IRCNAME, 'register', 'all' );
+
+	my $server = ($this->servers)[int(rand(scalar $this->servers))];
+	$this->log("Attempting to connect to: $server\n");
+
+    $kernel->post(IRCNAME, 'connect',
+        {
+            Debug    => $this->debug,
+            Nick     => $this->nick,
+            Server   => $server,
+            Port     => $this->port,
+            Username => $this->username,
+            Ircname  => $this->name,
+        }
+    );
+    $kernel->delay('reconnect', 500);
 }
 
 =item stop_state
@@ -709,14 +714,13 @@ Called when we're stopping.  Shutdown the bot correctly.
 
 =cut
 
-sub stop_state
-{
-  my ($this, $kernel) = @_[OBJECT, KERNEL];
+sub stop_state {
+    my ( $this, $kernel ) = @_[ OBJECT, KERNEL ];
 
-  $this->log("Control session stopped.\n");
+    $this->log("Control session stopped.\n");
 
-  $kernel->post( IRCNAME, 'quit', $this->quit_message );
-  $kernel->alias_remove( ALIASNAME );
+    $kernel->post( IRCNAME, 'quit', $this->quit_message );
+    $kernel->alias_remove(ALIASNAME);
 }
 
 =item irc_001_state
@@ -728,23 +732,21 @@ We also ignore ourselves.  We don't want to hear what we have to say.
 
 =cut
 
-sub irc_001_state
-{
-  my ($this, $kernel) = @_[OBJECT, KERNEL];
+sub irc_001_state {
+    my ( $this, $kernel ) = @_[ OBJECT, KERNEL ];
 
-  $this->log("IRC server ready\n");
+    $this->log("IRC server ready\n");
 
-  # ignore all messages from ourselves
-  $kernel->post( IRCNAME, 'mode', $this->nick, '+i' );
+    # ignore all messages from ourselves
+    $kernel->post( IRCNAME, 'mode', $this->nick, '+i' );
 
-  # connect to the channel
-  foreach my $channel ($this->channels)
-  {
-    $this->log("Trying to connect to '$channel'\n");
-    $kernel->post( IRCNAME , 'join', $channel );
-  }
+    # connect to the channel
+    foreach my $channel ( $this->channels ) {
+        $this->log("Trying to connect to '$channel'\n");
+        $kernel->post( IRCNAME, 'join', $channel );
+    }
 
-  $this->connected();
+    $this->connected();
 }
 
 =item irc_disconnected_state
@@ -754,31 +756,30 @@ then reconnects.
 
 =cut
 
-sub irc_disconnected_state
-{
-  my ($this, $server) = @_[OBJECT, ARG0];
-  $this->log("Lost connection to server $server.\n");
-  die "IRC Disconnect: $server";
+sub irc_disconnected_state {
+    my ( $this, $server ) = @_[ OBJECT, ARG0 ];
+    $this->log("Lost connection to server $server.\n");
+
+    #  die "IRC Disconnect: $server";
 }
 
 =item irc_error_state
 
-Called if there is an irc server error.  Logs the error and then reconnects.
+Called if there is an irc server error.  Logs the error and then dies.
 
 =cut
 
-sub irc_error_state
-{
-  my ($this, $err) = @_[OBJECT, ARG0];
-  $this->log("Server error occurred! $err\n");
-  die "IRC Error: $err";
+sub irc_error_state {
+    my ( $this, $err ) = @_[ OBJECT, ARG0 ];
+    $this->log("Server error occurred! $err\n");
+
+    #  die "IRC Error: $err";
 }
 
-sub irc_socketerr_state
-{
-  my ($this, $err) = @_[OBJECT, ARG0];
-  $this->log("Socket error occurred! $err\n");
-  die "Socket Error: $err";
+sub irc_socketerr_state {
+	my ($this, $err) = @_[OBJECT, ARG0];
+	$this->log("Socket error occured! $err\n");
+	die "Socket Error: $err";
 }
 
 =item irc_kicked_state
@@ -790,9 +791,8 @@ wanted, the best thing to do would be to hang around off channel.
 
 =cut
 
-sub irc_kicked_state
-{
-  my ($this, $err) = @_[OBJECT, ARG0];
+sub irc_kicked_state {
+    my ( $this, $err ) = @_[ OBJECT, ARG0 ];
 }
 
 =item irc_join_state
@@ -801,9 +801,8 @@ Called if someone joins.  Used for nick tracking
 
 =cut
 
-sub irc_join_state
-{
-  my ($this, $nick) = @_[OBJECT, ARG0];
+sub irc_join_state {
+    my ( $this, $nick ) = @_[ OBJECT, ARG0 ];
 }
 
 =item irc_nick_state
@@ -812,9 +811,8 @@ Called if someone changes nick.  Used for nick tracking
 
 =cut
 
-sub irc_nick_state
-{
-  my ($this, $nick, $newnick) = @_[OBJECT, ARG0, ARG1];
+sub irc_nick_state {
+    my ( $this, $nick, $newnick ) = @_[ OBJECT, ARG0, ARG1 ];
 }
 
 =item irc_said_state
@@ -825,7 +823,7 @@ formats it into a nicer format and calls 'said'
 =cut
 
 sub irc_said_state {
-  irc_received_state('said','say',@_);
+    irc_received_state( 'said', 'say', @_ );
 }
 
 =item irc_emoted_state
@@ -837,7 +835,7 @@ which deals with it as if it was a spoken phrase.
 =cut
 
 sub irc_emoted_state {
-  irc_received_state('emoted','emote',@_);
+    irc_received_state( 'emoted', 'emote', @_ );
 }
 
 =item irc_received_state
@@ -848,61 +846,58 @@ channel input into a more copable-with format.
 =cut
 
 sub irc_received_state {
-  my $received = shift;
-  my $respond = shift;
-  my $return;
+    my $received = shift;
+    my $respond  = shift;
+    my ( $this, $nick, $to, $body ) = @_[ OBJECT, ARG0, ARG1, ARG2 ];
 
-  my ($this, $nick, $to, $body) = @_[OBJECT, ARG0, ARG1, ARG2];
+    my $return;
 
-  my $mess = {};
+    my $mess = {};
 
-  # work out who it was from
-  $mess->{userhost} = $nick;
-  $mess->{who} = $this->nick_strip($nick);
+    # work out who it was from
+    $mess->{userhost} = $nick;
+    $mess->{who} = $this->nick_strip($nick);
 
-  return undef if $this->ignore_nick($mess->{who});
+	return undef if $this->ignore_nick($mess->{who});
 
-  # right, get the list of places this message was
-  # sent to and work out the first one that we're
-  # either a memeber of is is our nick.
-  # The IRC protocol allows messages to be sent to multiple
-  # targets, which is pretty clever. However, noone actually
-  # /does/ this, so we can get away with this:
+    # right, get the list of places this message was
+    # sent to and work out the first one that we're
+    # either a memeber of is is our nick.
+    # The IRC protocol allows messages to be sent to multiple
+    # targets, which is pretty clever. However, noone actually
+    # /does/ this, so we can get away with this:
 
-  my $channel = $to->[0];
-  if ($this->nick =~ /^$channel$/i)
-  {
-    $mess->{channel} = "msg";
-    $mess->{address} = "msg";
-  }
-  else {
-    $mess->{channel} = $channel;
-  }
-
-  # okay, work out if we're addressed or not
-
-  $mess->{body} = $body;
-  unless ($mess->{channel} eq "msg")
-  {
-    my $nick = $this->nick;
-    ($mess->{address}) = $mess->{body} =~ /^(\Q$nick\E\s*[:,-])/i;
-    $mess->{body} =~ s/^(\Q$nick\E\s*[:,-])//i if $mess->{address};
-
-    foreach $nick ($this->alt_nicks)
-    {
-      last if $mess->{address};
-
-      ($mess->{address}) = $mess->{body} =~ /^(\Q$nick\E\s*[:,-])/i;
-      $mess->{body} =~ s/^(\Q$nick\E\s*[:,-])//i if $mess->{address};
+    my $channel = $to->[0];
+    if ($this->nick =~ /^$channel$/i) {
+        $mess->{channel} = "msg";
+        $mess->{address} = "msg";
+    } else {
+        $mess->{channel} = $channel;
     }
-  }
 
-  # strip off whitespace before and after the message
-  $mess->{body} =~ s/^\s+//;
-  $mess->{body} =~ s/\s+$//;
+    # okay, work out if we're addressed or not
 
-  # okay, we got this far.  Better log this.  This needs changing
-  # to a nice format.  Oooh, I could spit out sax events... (mf)
+    $mess->{body} = $body;
+    unless ( $mess->{channel} eq "msg" ) {
+        my $nick = $this->nick;
+        ( $mess->{address} ) = $mess->{body} =~ /^(\Q$nick\E[:,]\s)/i;
+		$mess->{body} =~ s/^(\Q$nick\E[:,]\s)//i if $mess->{address};
+
+        foreach $nick ( $this->alt_nicks ) {
+            last if $mess->{address};
+
+            ( $mess->{address} ) = $mess->{body} =~ /^(\Q$nick\E[:,]\s)/i;
+				$mess->{body} =~ s/^(\Q$nick\E[:,]\s)//i if $mess->{address};
+        }
+    }
+
+    # strip off whitespace before and after the message
+    $mess->{body} =~ s/^\s+//;
+    $mess->{body} =~ s/\s+$//;
+
+    # okay, we got this far.  Better log this.  This needs changing
+    # to a nice format.  Oooh, I could spit out sax events... (mf)
+
   if ($mess->{address}) {
   if ($mess->{channel} eq 'msg') {
     $this->log("=> /msg ${\($this->nick)} $mess->{body} (from $mess->{who}) <=\n");
@@ -912,33 +907,45 @@ sub irc_received_state {
   }
   }
 
-  # check if someone was asking for help
-  #if ($mess->{address} && ($mess->{body} =~ /^help/i))
-  #{
-  #  $this->log("Invoking help for '$mess->{who}'\n");
-  #  $mess->{body} = $this->help($mess);
-  #  $this->say($mess);
-  #  return;
-  #}
+    # check if someone was asking for help
+    #if ( $mess->{address} && ( $mess->{body} =~ /^help/i ) ) {
+    #    $this->log("Invoking help for '$mess->{who}'\n");
+    #    $mess->{body} = $this->help($mess);
+    #    $this->say($mess);
+    #    return;
+    #}
 
-  # okay, call the said/emoted method
-  $respond = $this->$received($mess);
+    # okay, call the said/emoted method
+    $respond = $this->$received($mess);
 
-  ### what did we get back?
+    ### what did we get back?
 
-  # nothing? Say nothing then
-  return unless defined($return);
+    # nothing? Say nothing then
+    return unless defined($return);
 
-  # a string?  Say it how we were addressed then
-  unless (ref($return))
-  {
-    $mess->{body} = $return;
-    $this->$respond($mess);
-    return;
-  }
+    # a string?  Say it how we were addressed then
+    unless ( ref($return) ) {
+        $mess->{body} = $return;
+        $this->$respond($mess);
+        return;
+    }
 
-  # just say what we were handed back
-  $this->$respond($return);
+    # just say what we were handed back
+    $this->$respond($return);
+}
+
+=item irc_ping_state
+
+The most reliable way I've found of doing auto-server-rejoin is to listen for
+pings. Every ping we get, we put off rejoining the server for another few mins.
+If we haven't heard a ping in a while, the rejoin code will get called.
+
+=cut
+
+sub irc_ping_state {
+    my ( $this, $kernel, $heap ) = @_[ OBJECT, KERNEL, HEAP ];
+    $this->log("PING\n");
+    $kernel->delay( 'reconnect', 500 );
 }
 
 =item fork_close_state
@@ -950,7 +957,8 @@ from memory.
 =cut
 
 sub fork_close_state {
-    my ($this,$wheel_id)=@_[0,ARG0];
+    my ( $this, $wheel_id ) = @_[ 0, ARG0 ];
+
     #warn "received close event from wheel $wheel_id\n";
     delete $this->{forks}->{$wheel_id};
 }
@@ -963,11 +971,9 @@ in derived classes to be more useful
 
 =cut
 
-sub fork_error_state {}
+sub fork_error_state { }
 
 =back
-
-=head2 Other States
 
 =head2 Other States
 
@@ -982,12 +988,11 @@ is equivalent to
 
 =cut
 
-sub AUTOLOAD
-{
-  my $this = shift;
-  our $AUTOLOAD;
-  $AUTOLOAD =~ s/.*:://;
-  $poe_kernel->post(IRCNAME, $AUTOLOAD, @_);
+sub AUTOLOAD {
+    my $this = shift;
+    our $AUTOLOAD;
+    $AUTOLOAD =~ s/.*:://;
+    $poe_kernel->post( IRCNAME, $AUTOLOAD, @_ );
 }
 
 =head2 Methods
@@ -1001,20 +1006,16 @@ otherwise simple prints the message to STDERR.
 
 =cut
 
-sub log
-{
-  my $this = shift;
-  my $text = shift;
+sub log {
+    my $this = shift;
+    my $text = shift;
 
-  if ($this->{log})
-  {
-    $this->{log}->log(time . " $text");
-  }
-  else
-  {
-	my $dt = POSIX::strftime("%y-%m-%d %H:%M:%S", localtime(time));
-    print STDERR "$dt: $text";
-  }
+    if ( $this->{log} ) {
+        $this->{log}->log( time . " $text" );
+    } else {
+		my $dt = POSIX::strftime("%y-%m-%d %H:%M:%S", localtime(time));
+        print STDERR "$dt: $text";
+    }
 }
 
 =item get($key) or get($storename, $key)
@@ -1025,24 +1026,18 @@ uses the "main" store.
 
 =cut
 
-sub get
-{
-  my $this      = shift;
-  my $key       = pop;
-  my $storename = pop || "main";
+sub get {
+    my $this      = shift;
+    my $key       = pop;
+    my $storename = pop || "main";
 
-  if ($this->{store})
-  {
-    return $this->{store}->get($storename,$key)
-  }
-  elsif ($this->{tempstore}{ $storename })
-  {
-    $this->{tempstore}{ $storename }{ $key };
-  }
-  else
-  {
-    return undef;
-  }
+    if ( $this->{store} ) {
+        return $this->{store}->get( $storename, $key );
+    } elsif ( $this->{tempstore}{$storename} ) {
+        $this->{tempstore}{$storename}{$key};
+    } else {
+        return undef;
+    }
 }
 
 =item set($key, $value) or set($storename, $key, $value)
@@ -1052,22 +1047,20 @@ initilised, otherwise uses an internal hash.
 
 =cut
 
-sub set
-{
-  my $this      = shift;
-  my $value     = pop;
-  my $key       = pop;
-  my $storename = pop || "main";
+sub set {
+    my $this      = shift;
+    my $value     = pop;
+    my $key       = pop;
+    my $storename = pop || "main";
 
-  if ($this->{store})
-  {
-    return $this->{store}->get($storename,$key)
-  }
+    if ( $this->{store} ) {
+        return $this->{store}->get( $storename, $key );
+    }
 
-  $this->{tempstore}{ $storename } = {}
-    unless ($this->{tempstore}{ $storename });
+    $this->{tempstore}{$storename} = {}
+      unless ( $this->{tempstore}{$storename} );
 
-  $this->{tempstore}{ $storename }{ $key } = $value;
+    $this->{tempstore}{$storename}{$key} = $value;
 }
 
 sub delete
@@ -1090,6 +1083,7 @@ sub delete
   }
 }
 
+
 =item ignore_nick($nick)
 
 Return true if this nick should be ignored.  Ignores anything in
@@ -1097,15 +1091,11 @@ the ignore list or with a nick ending in "bot".
 
 =cut
 
-sub ignore_nick
-{
-  local $_;
-
-  my $this = shift;
-  my $nick = shift;
-
-  return 1 if $nick =~ /bot$/i;
-  return grep {$nick =~ /^$_$/i} @{ $this->{ignore_list} };
+sub ignore_nick {
+    local $_;
+    my $this = shift;
+    my $nick = shift;
+    return grep { $nick eq /^$_$/i } @{ $this->{ignore_list} };
 }
 
 =item nick_strip
@@ -1115,20 +1105,19 @@ returns just the nick
 
 =cut
 
-sub nick_strip
-{
-  my $this = shift;
-  my $combined = shift;
-  my ($nick) = $combined =~ m/(.*?)!/;
+sub nick_strip {
+    my $this     = shift;
+    my $combined = shift;
+    my ($nick) = $combined =~ m/(.*?)!/;
 
-  return $nick;
+    return $nick;
 }
 
 =back
 
 =head1 AUTHOR
 
-Simon Batistoni E<lt>simon@hitherto.netE<gt>
+Tom Insam E<lt>tom@jerakeen.orgE<gt>
 
 This program is free software; you can redistribute it
 and/or modify it under the same terms as Perl itself.
@@ -1142,6 +1131,9 @@ Nice code for dealing with emotes thanks to Jo Walsh.
 
 Various patches from Tom Insam, including much improved rejoining,
 AUTOLOAD stuff, better interactive help, and a few API tidies.
+
+Maintainership for a while was in the hands of Simon Kent
+E<lt>simon@hitherto.netE<gt>. Don't know what he did. :-)
 
 =head1 SYSTEM REQUIREMENTS
 

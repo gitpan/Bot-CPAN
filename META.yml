@@ -1,0 +1,17 @@
+name: Bot-CPAN
+version: 0.74
+abstract: provides CPAN services via IRC
+author: Adam J. Foxson <afoxson@pobox.com>
+license: perl
+distribution_type: module
+requires:
+  Net::NNTP: 2.22
+  Mail::Internet: 1.58
+  CPANPLUS: 0.042
+  Attribute::Handlers: 0.78
+  POE: 0.26
+  POE::Component::IRC: 2.9
+private:
+  directory:
+    - inc
+generated_by: Module::Install version 0.22

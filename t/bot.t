@@ -1,9 +1,6 @@
-# TODO: write more tests
-
 use Test;
-BEGIN { plan tests => 20 };
+BEGIN { plan tests => 19 };
 use Bot::CPAN;
-ok(1);
 
 my $bot = Bot::CPAN->new();
 ok(ref $bot, 'Bot::CPAN');

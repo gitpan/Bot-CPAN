@@ -1,12 +1,25 @@
-Changes						Details all changes made since initial release
-INSTALL						Instructions for installation
-MANIFEST					This list of files
-Makefile.PL					Distribution build script
-README						Distribution documentation, as text
-etc/cpanbot.sh				An example script to run B::C as a service
-etc/poecomponentirc.patch	patchfile for POE::Component::IRC 2.7
-lib/Bot/CPAN.pm				General implementation
-lib/Bot/CPAN.pod			Distribution documentation, as POD
-lib/Bot/CPAN/BasicBot.pm	Bundled and heavily modified Bot::BasicBot distro
-lib/Bot/CPAN/Glue.pm		The deep, dark, black magic
-t/bot.t						Test suite
+Changes
+INSTALL
+MANIFEST			This list of files
+MANIFEST.SKIP
+META.yml
+Makefile.PL
+README
+SIGNATURE
+etc/cpanbot.sh
+inc/ExtUtils/AutoInstall.pm
+inc/Module/Install.pm
+inc/Module/Install/AutoInstall.pm
+inc/Module/Install/Base.pm
+inc/Module/Install/Can.pm
+inc/Module/Install/Fetch.pm
+inc/Module/Install/Include.pm
+inc/Module/Install/Makefile.pm
+inc/Module/Install/Metadata.pm
+inc/Module/Install/Win32.pm
+lib/Bot/CPAN.pm
+lib/Bot/CPAN.pod
+lib/Bot/CPAN/BasicBot.pm
+lib/Bot/CPAN/Glue.pm
+t/0-signature.t
+t/bot.t

@@ -1,0 +1,6 @@
+^Makefile\.old$
+^MANIFEST\.bak$
+^Makefile$
+^blib/
+^pm_to_blib$
+\B\.svn\b
