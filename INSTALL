@@ -13,10 +13,16 @@ To install this distribution type the following:
 
 DEPENDENCIES
 
-    Net::NNTP 2.22
-    Mail::Internet 1.58
-    CPANPLUS 0.042
     Attribute::Handlers 0.78
+    CPANPLUS 0.042
+    Encode 1.97 (optional; for utf8 decoding of cpanratings data)
+    HTTP::Request 1.30
+    LWP::UserAgent 2.003
+    Mail::Internet 1.58
+    Module::Signature (optional; for distribution authenticity verification)
+    Net::NNTP 2.22
     POE 0.26
     POE::Component::IRC 2.9
-    Module::Signature (optional; for distribution authenticity verification)
+    URI 1.24
+    XML::Parser 2.33
+    XML::RSS::Parser 0.21

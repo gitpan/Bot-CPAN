@@ -1,5 +1,5 @@
-# $Rev: 76 $
-# $Id: CPAN.pm 76 2003-08-11 01:44:29Z afoxson $
+# $Rev: 79 $
+# $Id: CPAN.pm 79 2003-08-15 14:13:28Z afoxson $
 
 # Bot::CPAN - provides CPAN services via IRC
 # Copyright (c) 2003 Adam J. Foxson. All rights reserved.
@@ -22,10 +22,13 @@ use Mail::Internet;
 use POE;
 use CPANPLUS::Backend;
 use Bot::CPAN::Glue;
+use XML::RSS::Parser;
+use URI;
+use LWP::UserAgent;
 use vars qw(@ISA $VERSION);
 
 @ISA = qw(Bot::CPAN::Glue);
-($VERSION) = sprintf "%.02f", (('$Rev: 76 $' =~ /\s+(\d+)\s+/)[0] / 100);
+($VERSION) = sprintf "%.02f", (('$Rev: 79 $' =~ /\s+(\d+)\s+/)[0] / 100);
 
 local $^W;
 
@@ -389,6 +392,37 @@ sub language :Private(notice) :Public(privmsg) :Args(required)
 	$self->_print($event, $language);
 }
 
+sub _mean {
+	shift;
+	my @ratings = @_;
+	my $total = 0;
+	my $ratings = scalar @ratings;
+
+	for my $rating (@ratings) {
+		$total += $rating;
+	}
+
+	my $mean = $total/$ratings;
+	return sprintf "%.1f", $mean;
+}
+
+sub _median {
+	shift;
+	my @elements = @_;
+
+	if (scalar @elements == 1) {
+		return $elements[0];
+	}
+	elsif (scalar @elements == 2) {
+		return ($elements[0] + $elements[1]) / 2;
+	}
+	else {
+		@elements = sort @elements;
+		shift @elements;
+		pop @elements;
+	}
+}
+
 sub modulelist :Private(notice) :Public(privmsg) :Args(required)
 :Help('determines if a given module is in the Module List') {
 	my ($self, $event, $module) = @_;
@@ -529,6 +563,116 @@ sub recent :Private(notice) :Public(privmsg) :Args(refuse)
 	}
 
 	$self->_print($event, join ', ', (reverse @recent));
+}
+
+# Unfortunately, until the cpanratings.perl.org people add ratings support
+# into the RSS feed we'll have to screen-scrape
+sub ratings :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrives ratings of a distribution') {
+	my ($self, $event, $module) = @_;
+
+	if (!eval{require Socket; Socket::inet_aton('cpanratings.perl.org')}) {
+		$self->_print($event, "cpanratings.perl.org is unavailable");
+		return;
+	}
+
+	my $ua = LWP::UserAgent->new(agent => "Bot::CPAN/$VERSION");
+	my $place = "http://cpanratings.perl.org/d/$module";
+	my $url = URI->new($place);
+	my $req = HTTP::Request->new(GET => $url);
+	my $data = $ua->request($req);
+
+	if (not $data->is_success) {
+		$self->_print($event, "No such distribution: $module");
+		return;
+	}
+
+	my @data = split /\n/, $data->as_string;
+	my @ratings;
+
+	for my $rating (@data) {
+		if ($rating =~ m!<img src="/images/stars-(\d.\d).png">!) {
+			push @ratings, $1;
+		}
+	}
+
+	if (scalar @ratings == 0) {
+		$self->_print($event, "No ratings for $module");
+		return;
+	}
+
+	my $mean = $self->_mean(@ratings);
+	my $median = $self->_median(@ratings);
+	my $buffer = join ', ', @ratings;
+
+	$buffer .= " - Mean: $mean, Median: $median";
+	$self->_print($event, $buffer);
+}
+
+sub _ratings_for_reviews {
+	shift;
+
+	my $module = shift;
+	my $ua = LWP::UserAgent->new(agent => "Bot::CPAN/$VERSION");
+	my $place = "http://cpanratings.perl.org/d/$module";
+	my $url = URI->new($place);
+	my $req = HTTP::Request->new(GET => $url);
+	my $data = $ua->request($req);
+	my @data = split /\n/, $data->as_string;
+	my @ratings;
+
+	for my $rating (@data) {
+		if ($rating =~ m!<img src="/images/stars-(\d.\d).png">!) {
+			push @ratings, $1;
+		}
+	}
+
+	return \@ratings;
+}
+
+sub reviews :Private(notice) :Fork :LowPrio :Args(required)
+:Help('retrives reviews of a distribution') {
+	my ($self, $event, $module) = @_;
+
+	if (!eval{require Socket; Socket::inet_aton('cpanratings.perl.org')}) {
+		$self->_print($event, "cpanratings.perl.org is unavailable");
+		return;
+	}
+
+	my $ua = LWP::UserAgent->new(agent => "Bot::CPAN/$VERSION");
+	my $place = "http://cpanratings.perl.org/d/$module.rss";
+	my $p = new XML::RSS::Parser;
+	my $url = URI->new($place);
+	my $req = HTTP::Request->new(GET => $url);
+	my $feed = $ua->request($req);
+	my $items;
+
+	unless (eval {$p->parse($feed->content)}) {
+		$self->_print($event, "No such distribution: $module");
+		return;
+	}
+
+	unless ($items = $p->items) {
+		$self->_print($event, "No reviews for $module");
+		return;
+	}
+
+	my @r2r = @{$self->_ratings_for_reviews($module)};
+	my $encode = eval{require Encode; import Encode 'decode_utf8'};
+	my $count = 0;
+
+	for my $item (@{$items}) {
+		my $creator = $item->{'http://purl.org/dc/elements/1.1/creator'};
+		my $description = $item->{'http://purl.org/rss/1.0/description'};
+
+		if ($encode) {
+			$creator = decode_utf8($creator);
+			$description = decode_utf8($description);
+		}
+
+		$self->_print($event, "$creator: $description ($r2r[$count])\n");
+		$count++;
+	}
 }
 
 sub rt :Private(notice) :Public(privmsg) :Args(required)

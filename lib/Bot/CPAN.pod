@@ -217,6 +217,14 @@ sends README for module via DCC CHAT
 
 shows last ten distributions uploaded to the CPAN
 
+=item * B<ratings>
+
+retrives ratings of a distribution
+
+=item * B<reviews>
+
+retrives reviews of a distribution
+
 =item * B<rt>
 
 retrieves the RT www path to a module
@@ -395,13 +403,27 @@ the same terms as Perl itself.
 
 =item * L<CPANPLUS>
 
+=item * L<Encode>
+
+=item * L<HTTP::Request>
+
+=item * L<LWP::UserAgent>
+
+=item * L<Module::Signature>
+
 =item * L<POE>
 
 =item * L<POE::Component::IRC>
 
+=item * L<Mail::Internet>
+
 =item * L<Net::NNTP>
 
-=item * L<Mail::Internet>
+=item * L<URI>
+
+=item * L<XML::Parser>
+
+=item * L<XML::RSS::Parser>
 
 =back
 

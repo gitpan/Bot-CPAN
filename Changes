@@ -1,5 +1,9 @@
 Revision history for Perl extension Bot::CPAN.
 
+0.79  Fri Aug 15 10:10:06 2003
+      - Added command 'reviews'; retrieves reviews from cpanratings.perl.org
+      - Added command 'ratings'; retrieves ratings from cpanratings.perl.org
+
 0.76  Sun Aug 10 9:42:21 2003
       - The 'url' command now returns a /dist/ url, instead of an /author/
         one. This is mainly for the benefit of people that run Bot::CPAN off

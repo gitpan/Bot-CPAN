@@ -167,6 +167,12 @@ COMMANDS
     * recent
         shows last ten distributions uploaded to the CPAN
 
+    * ratings
+        retrives ratings of a distribution
+
+    * reviews
+        retrives reviews of a distribution
+
     * rt
         retrieves the RT www path to a module
 
@@ -312,10 +318,17 @@ SEE ALSO
     * the Attribute::Handlers manpage
     * the Bot::BasicBot manpage
     * the CPANPLUS manpage
+    * the Encode manpage
+    * the HTTP::Request manpage
+    * the LWP::UserAgent manpage
+    * the Module::Signature manpage
     * the POE manpage
     * the POE::Component::IRC manpage
-    * the Net::NNTP manpage
     * the Mail::Internet manpage
+    * the Net::NNTP manpage
+    * the URI manpage
+    * the XML::Parser manpage
+    * the XML::RSS::Parser manpage
 AUTHOR
     Adam J. Foxson <afoxson@pobox.com>, with patches from Casey West
     <cwest@cpan.org> to support the latest POE versions, Randal Schwartz
