@@ -1,5 +1,5 @@
-# $Rev: 63 $
-# $Id: BasicBot.pm 63 2003-07-12 09:09:15Z afoxson $
+# $Rev: 82 $
+# $Id: BasicBot.pm 82 2003-08-20 06:02:45Z afoxson $
 
 package Bot::CPAN::BasicBot;
 
@@ -22,7 +22,7 @@ use vars qw(@ISA @EXPORT $VERSION);
 @ISA    = qw(Exporter);
 @EXPORT = qw(say emote);
 
-($VERSION) = sprintf "%.02f", (('$Rev: 63 $' =~ /\s+(\d+)\s+/)[0] / 100);
+($VERSION) = sprintf "%.02f", (('$Rev: 82 $' =~ /\s+(\d+)\s+/)[0] / 100);
 
 =head1 NAME
 
@@ -115,7 +115,6 @@ sub run {
                 irc_public      => "irc_said_state",
                 irc_ctcp_action => "irc_emoted_state",
                 irc_ping        => "irc_ping_state",
-                reconnect       => "reconnect",
 
                 irc_disconnected => "irc_disconnected_state",
                 reconnect        => "reconnect_state",

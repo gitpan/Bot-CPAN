@@ -1,0 +1,250 @@
+#!/usr/bin/perl -w
+
+# WARNING ** WARNING ** WARNING ** WARNING ** WARNING ** WARNING ** WARNING **
+#
+# THIS WRAPPER IS EXPERIMENTAL, AND CURRENTLY NON-FUNCTIONAL. Technically, the
+# wrapper is complete, but there is a serious problem with using Bot::CPAN with
+# AppConfig that I haven't as yet solved *sigh*
+#
+# See 'bin/cpanbot.conf' for the config file. To override the config file, you
+# can do something like: perl ./cpanbot --nick=whatever, etc.
+#
+# WARNING ** WARNING ** WARNING ** WARNING ** WARNING ** WARNING ** WARNING **
+
+# $Rev$
+# $Id$
+
+# cpanbot - wrapper script for Bot::CPAN
+# Copyright (c) 2003 Adam J. Foxson. All rights reserved.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the same terms as Perl itself.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+# fork && exit;
+
+die "$0 wrapper is experimental and non-functional. " .
+	"Remove this line to enable\n";
+
+use strict;
+use blib;
+use AppConfig qw(:argcount);
+
+my ($conf, @policy);
+$conf = &create_conf();
+$conf->file($conf->conf) if -e $conf->conf;
+$conf->args();
+&decommafication($conf);
+&mandatory_check($conf);
+@policy = &policy($conf);
+#&print_conf($conf);
+&start_bot($conf);
+
+sub create_conf {
+	my $conf = AppConfig->new({
+			GLOBAL => {DEFAULT => "<unset>", ARGCOUNT => ARGCOUNT_HASH},
+			CREATE => '^policy_',
+		},
+		channels => {
+			ARGCOUNT => ARGCOUNT_LIST},
+		servers => {
+			ARGCOUNT => ARGCOUNT_LIST},
+		port => {
+			ARGCOUNT => ARGCOUNT_ONE, DEFAULT => 6667},
+		nick => {
+			ARGCOUNT => ARGCOUNT_ONE, DEFAULT => 'CPAN' . $$},
+		alt_nicks => {
+			ARGCOUNT => ARGCOUNT_LIST},
+		username => {
+			ARGCOUNT => ARGCOUNT_ONE},
+		name => {
+			ARGCOUNT => ARGCOUNT_ONE},
+		ignore_list => {
+			ARGCOUNT => ARGCOUNT_LIST},
+		news_server => {
+			ARGCOUNT => ARGCOUNT_ONE, DEFAULT => 'nntp.perl.org'},
+		group => {
+			ARGCOUNT => ARGCOUNT_ONE, DEFAULT => 'perl.cpan.testers'},
+		reload_indices_interval => {
+			ARGCOUNT => ARGCOUNT_ONE, DEFAULT => 300},
+		inform_channel_of_new_uploads => {
+			ARGCOUNT => ARGCOUNT_ONE, DEFAULT => 60},
+		debug => {
+			ARGCOUNT => ARGCOUNT_ONE, DEFAULT => 0},
+		search_max_results => {
+			ARGCOUNT => ARGCOUNT_ONE, DEFAULT => 20},
+		adminhost => {
+			ARGCOUNT => ARGCOUNT_ONE, DEFAULT => qr/\b\B/},
+		conf => {
+			ARGCOUNT => ARGCOUNT_ONE, DEFAULT => "$ENV{'HOME'}/.cpanbot"},
+	);
+
+	return $conf;
+}
+
+sub decommafication {
+	my $conf = shift;
+	for my $multi (qw(channels servers alt_nicks ignore_list)) {
+		my @servers;
+		for my $str (@{$conf->$multi}) {
+			my @multi = split /,/, $str;
+			push @servers, @multi;
+		}
+		$conf->_default($multi);
+		for my $server (@servers) {
+			$conf->set($multi, $server);
+		}
+	}
+}
+
+sub mandatory_check {
+	my $conf = shift;
+	for my $mandatory (qw(channels servers)) {
+		die "$0: Parameter '$mandatory' must be specified\n" if
+			scalar @{$conf->$mandatory} == 0;
+	}
+}
+
+sub policy {
+	my $conf = shift;
+	my @policy;
+	my %vars = $conf->varlist("^policy_");
+
+	for my $key (sort keys %vars) {
+		my ($channel) = $key =~ /^policy_(.+)$/;
+		my @channel_policy;
+
+		for my $subkey (sort keys %{$vars{$key}}) {
+			next unless $subkey =~ /^allow|deny$/;
+			push @channel_policy, $subkey, eval {$vars{$key}{$subkey}};
+		}
+
+		push @policy, $channel, {@channel_policy},
+	}
+
+	return @policy;
+}
+
+sub print_conf {
+	my $conf = shift;
+	print "Channels: ", join ', ', @{$conf->channels}, "\n";
+	print "Servers: ", join ', ', @{$conf->servers}, "\n";
+	print "Port: ", $conf->port, "\n";
+	print "Nick: ", $conf->nick, "\n";
+	print "Alt nicks: ", join ', ', @{$conf->alt_nicks}, "\n";
+	print "Username: ", $conf->username, "\n";
+	print "Name: ", $conf->name, "\n";
+	print "Ignores: ", join ', ', @{$conf->ignore_list}, "\n";
+	print "NNTP Server: ", $conf->news_server, "\n";
+	print "NNTP Group: ", $conf->group, "\n";
+	print "Reload: ", $conf->reload_indices_interval, "\n";
+	print "Inform: ", $conf->inform_channel_of_new_uploads, "\n";
+	print "Debug: ", $conf->debug, "\n";
+	print "Search Max: ", $conf->search_max_results, "\n";
+	print "Adminhost: ", eval{$conf->adminhost}, "\n";
+}
+
+sub start_bot {
+	my $conf = shift;
+	my $channels = [@{$conf->channels}];
+	my $servers = [@{$conf->servers}];
+	my $port = $conf->port;
+	my $nick = $conf->nick;
+	my $alt_nicks = [@{$conf->alt_nicks}];
+	my $username = $conf->username;
+	my $name = $conf->name;
+	my $ignore_list = [@{$conf->ignore_list}];
+	my $news_server = $conf->news_server;
+	my $group = $conf->group;
+	my $reload_indices_interval = $conf->reload_indices_interval;
+	my $inform_channel_of_new_uploads = $conf->inform_channel_of_new_uploads;
+	my $debug = $conf->debug;
+	my $search_max_results = $conf->search_max_results;
+	my $adminhost = eval{$conf->adminhost};
+	my $policy = {@policy};
+
+	require Bot::CPAN;
+
+	my $bot = Bot::CPAN->new(
+    	channels => $channels,
+    	servers => $servers,
+    	port => $port,
+    	nick => $nick,
+    	alt_nicks => $alt_nicks,
+    	username => $username,
+    	name => $name,
+    	ignore_list => $ignore_list,
+    	news_server => $news_server,
+    	group => $group,
+    	reload_indices_interval => $reload_indices_interval,
+    	inform_channel_of_new_uploads => $inform_channel_of_new_uploads,
+    	debug => $debug,
+    	search_max_results => $search_max_results,
+    	adminhost => $adminhost,
+    	policy => $policy,
+	);
+
+	$bot->run();
+}
+
+__END__
+
+=pod
+
+=head1 NAME
+
+cpanbot - wrapper script for Bot::CPAN
+
+=head1 SYNOPSIS
+
+  TODO
+
+=head1 DESCRIPTION
+
+TODO
+
+=head1 EXAMPLES
+
+  TODO
+
+=head1 CAVEATS
+
+TODO
+
+=head1 BUGS
+
+TODO
+
+=head1 TODO
+
+  - TODO
+
+=head1 COPYRIGHT
+
+  Copyright (c) 2003 Adam J. Foxson. All rights reserved.
+
+=head1 LICENSE
+
+This program is free software; you may redistribute it and/or modify it under
+the same terms as Perl itself.
+
+=head1 SEE ALSO
+
+=over 4
+
+=item * L<perl>
+
+=item * L<AppConfig>
+
+=item * L<Bot::CPAN>
+
+=back
+
+=head1 AUTHOR
+
+Adam J. Foxson E<lt>F<afoxson@pobox.com>E<gt>
+
+=cut

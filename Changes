@@ -1,5 +1,25 @@
 Revision history for Perl extension Bot::CPAN.
 
+0.83  Fri Aug 22 19:54:29 2003
+      - Changed display format of 'ratings'
+
+0.82  Wed Aug 20 01:58:31 2003
+      - Started working on the 'cpanbot' wrapper; it is currently experimental
+        and non-functional. Technically, the wrapper is complete, but there is
+        a serious problem with using Bot::CPAN with AppConfig that I haven't
+        as yet solved *sigh*
+      - Applied a patch from dngor and Spoon that fixes a bug with reconnection
+      - We now use Statistics::Descriptive and Math::Round to calculate
+        cpanratings stats
+      - Added 'min', 'max', and 'standard deviation' stats, to the existant
+        stats of 'mean', and 'median' for cpanratings stats
+      - Added karma-ish representation of the average, rounded rating for any
+        given distribution to the upload informs. i.e.:
+        CPAN upload: CGI-Wiki-0.46 (++++ ) by KAKE
+        Note: There were competing "karma represetations" floated on
+              #perl@MagNET, such as "letter-grades", and "descriptive words"
+              but in the end, the incremement style got the popular vote
+
 0.79  Fri Aug 15 10:10:06 2003
       - Added command 'reviews'; retrieves reviews from cpanratings.perl.org
       - Added command 'ratings'; retrieves ratings from cpanratings.perl.org

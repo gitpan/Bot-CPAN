@@ -1,4 +1,4 @@
-#line 1 "inc/Module/Install/Can.pm - /Library/Perl/Module/Install/Can.pm"
+#line 1 "inc/Module/Install/Can.pm - /usr/local/lib/perl5/site_perl/5.8.0/Module/Install/Can.pm"
 # $File: //depot/cpan/Module-Install/lib/Module/Install/Can.pm $ $Author: ingy $
 # $Revision: #5 $ $Change: 1377 $ $DateTime: 2003/03/20 15:11:54 $ vim: expandtab shiftwidth=4
 

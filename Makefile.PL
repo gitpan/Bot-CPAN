@@ -1,5 +1,5 @@
-# $Rev: 79 $
-# $Id: Makefile.PL 79 2003-08-15 14:13:28Z afoxson $
+# $Rev: 82 $
+# $Id: Makefile.PL 82 2003-08-20 06:02:45Z afoxson $
 
 use inc::Module::Install;
 
@@ -9,17 +9,19 @@ abstract('provides CPAN services via IRC');
 author('Adam J. Foxson <afoxson@pobox.com>');
 license('perl');
 
-requires('Net::NNTP' => '2.22');
-requires('Mail::Internet' => '1.58');
-requires('CPANPLUS' => '0.042');
 requires('Attribute::Handlers' => '0.78');
+requires('CPANPLUS' => '0.042');
+requires('HTTP::Request' => '1.30');
+requires('LWP::UserAgent' => '2.003');
+requires('Mail::Internet' => '1.58');
+requires('Math::Round' => '0.05');
+requires('Net::NNTP' => '2.22');
 requires('POE' => '0.26');
 requires('POE::Component::IRC' => '2.9');
+requires('Statistics::Descriptive' => '2.6');
+requires('URI' => '1.24');
 requires('XML::Parser' => '2.33');
 requires('XML::RSS::Parser' => '0.21');
-requires('LWP::UserAgent' => '2.003');
-requires('HTTP::Request' => '1.30');
-requires('URI' => '1.24');
 
 features(
     'utf8 decoding of cpanratings data' => [
@@ -31,6 +33,7 @@ features(
 include('ExtUtils::AutoInstall');
 check_nmake();
 auto_install();
+#install_script('bin/cpanbot');
 
 &Meta->write;
 &Build->write if lc($0) eq 'build.pl';

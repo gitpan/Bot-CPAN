@@ -1,5 +1,5 @@
-# $Rev: 79 $
-# $Id: CPAN.pm 79 2003-08-15 14:13:28Z afoxson $
+# $Rev: 82 $
+# $Id: CPAN.pm 82 2003-08-20 06:02:45Z afoxson $
 
 # Bot::CPAN - provides CPAN services via IRC
 # Copyright (c) 2003 Adam J. Foxson. All rights reserved.
@@ -17,18 +17,20 @@ package Bot::CPAN;
 require 5.006;
 
 use strict;
-use Net::NNTP; 
-use Mail::Internet;
-use POE;
-use CPANPLUS::Backend;
-use Bot::CPAN::Glue;
-use XML::RSS::Parser;
-use URI;
-use LWP::UserAgent;
 use vars qw(@ISA $VERSION);
+use Bot::CPAN::Glue;
+use CPANPLUS::Backend;
+use LWP::UserAgent;
+use Mail::Internet;
+use Math::Round;
+use Net::NNTP; 
+use POE;
+use Statistics::Descriptive;
+use URI;
+use XML::RSS::Parser;
 
 @ISA = qw(Bot::CPAN::Glue);
-($VERSION) = sprintf "%.02f", (('$Rev: 79 $' =~ /\s+(\d+)\s+/)[0] / 100);
+($VERSION) = sprintf "%.02f", (('$Rev: 83 $' =~ /\s+(\d+)\s+/)[0] / 100);
 
 local $^W;
 
@@ -215,6 +217,7 @@ sub connected {
 	$poe_kernel->state('irc_dcc_start', $self);
 	$poe_kernel->state('_reload_indices', $self);
 	$poe_kernel->state('_inform_channel_of_new_uploads', $self);
+	$poe_kernel->delay('reconnect');
 	$poe_kernel->delay_add('_reload_indices', 0);
 	$poe_kernel->delay_add('_inform_channel_of_new_uploads',
 		$self->get('inform_channel_of_new_uploads'));
@@ -328,6 +331,27 @@ sub _extract_name_version {
 	return $dist;
 }
 
+sub _get_cpanratings {
+	shift;
+	my $type = shift;
+	my $module = shift;
+	my $ua = LWP::UserAgent->new(agent => "Bot::CPAN/$VERSION");
+	my $place;
+
+	if ($type eq 'reviews') {
+		$place = "http://cpanratings.perl.org/d/$module.rss";
+	}
+	elsif ($type eq 'ratings') {
+		$place = "http://cpanratings.perl.org/d/$module";
+	}
+
+	my $url = URI->new($place);
+	my $req = HTTP::Request->new(GET => $url);
+	my $data = $ua->request($req);
+
+	return $data;
+}
+
 sub _get_details {
 	my ($self, $event, $module, $type) = @_;
 	my ($details, $actual, $rv) =
@@ -346,6 +370,48 @@ sub _get_details {
 			return "${actual}' $type_string is: ${\($details->rv->{$actual}->{$type})}" :
 			return "${actual}'s $type_string is: ${\($details->rv->{$actual}->{$type})}";
 	}
+}
+
+sub _get_karma {
+	my $self = shift;
+	my $module = shift;
+	my $ratestr = '(unknown)';
+	my $dist = $self->_extract_name_version($module);
+
+	if (eval{require Socket; Socket::inet_aton('cpanratings.perl.org')}) {
+		my $data = $self->_get_cpanratings('ratings', $dist); 
+		if ($data->is_success) {
+			my @data = split /\n/, $data->as_string;
+			my @ratings;
+
+			for my $rating (@data) {
+				if ($rating =~ m!<img src="/images/stars-(\d.\d).png">!) {
+					push @ratings, $1;
+				}
+			}
+
+			if (scalar @ratings == 0) {
+				$ratestr = '(unrated)';
+			}
+			else {
+				my $stat = Statistics::Descriptive::Full->new();
+				$stat->add_data(@ratings);
+				my $round = round($stat->mean());
+
+				$ratestr = '(';
+				$ratestr .= '+' x $round;
+				$ratestr .= ' ' x (5-$round);
+				$ratestr .= ')';
+
+				$ratestr = '(error)' if length($ratestr) != 7;
+			}
+		}
+		else {
+			$ratestr = '(unrated)';
+		}
+	}
+
+	return $ratestr;
 }
 
 sub help :Private(notice) :LowPrio :Args(optional)
@@ -390,37 +456,6 @@ sub language :Private(notice) :Public(privmsg) :Args(required)
 	return unless $language;
 
 	$self->_print($event, $language);
-}
-
-sub _mean {
-	shift;
-	my @ratings = @_;
-	my $total = 0;
-	my $ratings = scalar @ratings;
-
-	for my $rating (@ratings) {
-		$total += $rating;
-	}
-
-	my $mean = $total/$ratings;
-	return sprintf "%.1f", $mean;
-}
-
-sub _median {
-	shift;
-	my @elements = @_;
-
-	if (scalar @elements == 1) {
-		return $elements[0];
-	}
-	elsif (scalar @elements == 2) {
-		return ($elements[0] + $elements[1]) / 2;
-	}
-	else {
-		@elements = sort @elements;
-		shift @elements;
-		pop @elements;
-	}
 }
 
 sub modulelist :Private(notice) :Public(privmsg) :Args(required)
@@ -519,7 +554,8 @@ sub _parse_article {
 
 	$self->_add_to_recent($mail->{_cpan_short});
 
-	my $inform = "$mail->{_cpan_short} by $mail->{_cpan_entered_by}";
+	my $karma = $self->_get_karma($mail->{_cpan_short});
+	my $inform = "$mail->{_cpan_short} $karma by $mail->{_cpan_entered_by}";
 	my $chan_inform = "upload: $inform";
 
 	for my $channel ($self->channels()) {
@@ -576,12 +612,7 @@ sub ratings :Private(notice) :Public(privmsg) :Args(required)
 		return;
 	}
 
-	my $ua = LWP::UserAgent->new(agent => "Bot::CPAN/$VERSION");
-	my $place = "http://cpanratings.perl.org/d/$module";
-	my $url = URI->new($place);
-	my $req = HTTP::Request->new(GET => $url);
-	my $data = $ua->request($req);
-
+	my $data = $self->_get_cpanratings('ratings', $module);
 	if (not $data->is_success) {
 		$self->_print($event, "No such distribution: $module");
 		return;
@@ -601,23 +632,33 @@ sub ratings :Private(notice) :Public(privmsg) :Args(required)
 		return;
 	}
 
-	my $mean = $self->_mean(@ratings);
-	my $median = $self->_median(@ratings);
-	my $buffer = join ', ', @ratings;
+	my $stat = Statistics::Descriptive::Full->new();
+	$stat->add_data(@ratings);
 
-	$buffer .= " - Mean: $mean, Median: $median";
+	my $mean = sprintf "%.1f", $stat->mean();
+	my $median = sprintf "%.1f", $stat->median();
+	my $min = sprintf "%.1f", $stat->min();
+	my $max = sprintf "%.1f", $stat->max();
+	my $stddev = sprintf "%.1f", $stat->standard_deviation();
+
+	my $ratings = scalar @ratings;
+	@ratings = reverse @ratings;
+	@ratings = splice @ratings, 0, 5;
+
+	my $buffer = 'Recent ratings: ';
+	$buffer .= join ', ', @ratings;
+
+	$buffer .=
+		"; Overall (n=$ratings): mean $mean, median $median, min $min, " .
+		"max $max, stddev $stddev";
+
 	$self->_print($event, $buffer);
 }
 
 sub _ratings_for_reviews {
-	shift;
-
+	my $self = shift;
 	my $module = shift;
-	my $ua = LWP::UserAgent->new(agent => "Bot::CPAN/$VERSION");
-	my $place = "http://cpanratings.perl.org/d/$module";
-	my $url = URI->new($place);
-	my $req = HTTP::Request->new(GET => $url);
-	my $data = $ua->request($req);
+	my $data = $self->_get_cpanratings('ratings', $module);
 	my @data = split /\n/, $data->as_string;
 	my @ratings;
 
@@ -639,15 +680,11 @@ sub reviews :Private(notice) :Fork :LowPrio :Args(required)
 		return;
 	}
 
-	my $ua = LWP::UserAgent->new(agent => "Bot::CPAN/$VERSION");
-	my $place = "http://cpanratings.perl.org/d/$module.rss";
-	my $p = new XML::RSS::Parser;
-	my $url = URI->new($place);
-	my $req = HTTP::Request->new(GET => $url);
-	my $feed = $ua->request($req);
+	my $data = $self->_get_cpanratings('reviews', $module);
 	my $items;
+	my $p = new XML::RSS::Parser;
 
-	unless (eval {$p->parse($feed->content)}) {
+	unless (eval {$p->parse($data->content)}) {
 		$self->_print($event, "No such distribution: $module");
 		return;
 	}

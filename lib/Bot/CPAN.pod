@@ -351,11 +351,29 @@ doesn't have a specified policy, all channel 'cpan upload' informs will
 be allowed.
 
 You will be matching against strings that look like the below. Bear this
-firmly in mind when you create regex's to match them:
+firmly in mind when you create regex's to match them (see 'RATINGS'):
 
-  Test-Reporter-1.19 by AFOXSON
-  POE-0.25 by RCAPUTO
-  Games-Cryptoquote-1.30 by BOBO
+  Test-Reporter-1.19 (+++++) by AFOXSON
+  POE-0.25 (+++++) by RCAPUTO
+  Games-Cryptoquote-1.30 (++++ ) by BOBO
+
+=head1 RATINGS
+
+An upload inform will look something like:
+
+  Test-Reporter-1.19 (+++++) by AFOXSON
+
+What is up with all of the +'s? The plus signs within the parens represent
+the distributions average rounded rating from cpanratings.perl.org (aka karma).
+Possible ratings are 1 through 5. The area between the parens is fixed-width
+which means if a distribution has an average rounded ratinging of '2' if will
+be padded with 3 spaces. (unknown) will be displayed if the bot cannot connect
+to the data source, (unrated) will be displayed if the module has yet to
+receieve any ratings, and (error) will occur if something went wrong.
+
+There were competing "karma represetations" floated on #perl@MagNET, such as
+"letter-grades", and "descriptive words" but in the end, the incremement style
+got the popular vote.
 
 =head1 CAVEATS
 
@@ -417,7 +435,11 @@ the same terms as Perl itself.
 
 =item * L<Mail::Internet>
 
+=item * L<Math::Round>
+
 =item * L<Net::NNTP>
+
+=item * L<Statistics::Descriptive>
 
 =item * L<URI>
 
