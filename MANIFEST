@@ -1,6 +1,14 @@
-bin/cpanbot
-bin/cpanbot.conf
+COPYING
 Changes
+INSTALL
+MANIFEST			This list of files
+MANIFEST.SKIP
+META.yml
+Makefile.PL
+README
+SIGNATURE
+bin/cpanbot
+bin/cpanbotrc
 etc/cpanbot.sh
 inc/ExtUtils/AutoInstall.pm
 inc/Module/Install.pm
@@ -11,17 +19,14 @@ inc/Module/Install/Fetch.pm
 inc/Module/Install/Include.pm
 inc/Module/Install/Makefile.pm
 inc/Module/Install/Metadata.pm
+inc/Module/Install/Scripts.pm
 inc/Module/Install/Win32.pm
-INSTALL
+inc/SCRIPTS/cpanbot
 lib/Bot/CPAN.pm
 lib/Bot/CPAN.pod
 lib/Bot/CPAN/BasicBot.pm
 lib/Bot/CPAN/Glue.pm
-Makefile.PL
-MANIFEST			This list of files
-MANIFEST.SKIP
-META.yml
-README
-SIGNATURE
+lib/Bot/CPAN/phrases.xml
 t/0-signature.t
 t/bot.t
+t/phrases.t

@@ -1,0 +1,24 @@
+channels #cpan
+channels #poe
+servers irc.perl.org
+servers binky.rhizomatic.net
+servers london.rhizomatic.net
+servers bullfrog.rhizomatic.net
+servers token.rhizomatic.net
+port 6667
+nick cpantest
+alt_nicks cpantest2
+alt_nicks cpantest3
+username cpantest
+name cpantest
+ignore_list purl
+ignore_list shorten
+reload_indices_interval 300
+inform_channel_of_new_uploads 60
+debug 0
+search_max_results 20
+adminhost qr/Fox!~Snak\@12-226-101-175\.client\.attbi\.com/
+news_server nntp.perl.org
+group perl.cpan.testers
+policy #poe allow qr/^POE-/i
+policy #poe deny qr/.+/

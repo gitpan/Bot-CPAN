@@ -1,11 +1,12 @@
 name: Bot-CPAN
-version: 0.83
+version: 1.7
 abstract: provides CPAN services via IRC
 author: Adam J. Foxson <afoxson@pobox.com>
-license: perl
+license: gpl
 distribution_type: module
 requires:
   Attribute::Handlers: 0.78
+  Class::Phrasebook: 0.88
   CPANPLUS: 0.042
   HTTP::Request: 1.30
   LWP::UserAgent: 2.003
@@ -20,6 +21,9 @@ requires:
   XML::RSS::Parser: 0.21
 recommends:
   Encode: 1.97
+  Config::Auto: 0.03
+  Getopt::Long: 2.23
+  Module::CPANTS: 0.20030725
 private:
   directory:
     - inc

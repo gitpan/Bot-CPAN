@@ -1,16 +1,19 @@
-# $Rev: 82 $
-# $Id: CPAN.pm 82 2003-08-20 06:02:45Z afoxson $
-
+# $Revision: 1.7 $
+# $Id: CPAN.pm,v 1.7 2003/08/28 09:32:32 afoxson Exp $
+#
 # Bot::CPAN - provides CPAN services via IRC
 # Copyright (c) 2003 Adam J. Foxson. All rights reserved.
 # Copyright (c) 2003 Casey West. All rights reserved.
 
-# This program is free software; you can redistribute it and/or modify
-# it under the same terms as Perl itself.
-
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
 
 package Bot::CPAN;
 
@@ -30,7 +33,7 @@ use URI;
 use XML::RSS::Parser;
 
 @ISA = qw(Bot::CPAN::Glue);
-($VERSION) = sprintf "%.02f", (('$Rev: 83 $' =~ /\s+(\d+)\s+/)[0] / 100);
+($VERSION) = '$Revision: 1.7 $' =~ /\s+(\d+\.\d+)\s+/;
 
 local $^W;
 
@@ -51,13 +54,13 @@ sub author :Private(notice) :Public(privmsg) :Args(required)
 
 	return unless $author;
 
-	$self->_print($event, $author);
+	$self->_print($event, $self->phrase({author => $author}));
 }
 
 sub botsnack :Public(privmsg) :Args(refuse)
 :Help('gives the bot a snack') {
 	my ($self, $event) = @_;
-	$self->_print($event, ':)');
+	$self->_print($event, $self->phrase());
 }
 
 sub _check_author {
@@ -97,15 +100,14 @@ sub _check_module {
 		$recent =~ s/::\d.+//g;
 
 		if ($recent eq $module) {
-			$self->_print($event,
-				"$module is a brand new distribution. I'll have details shortly.");
+			$self->_print($event, $self->phrase('new', {module => $module}));
 			return;
 		}
 	}
 
 	$type eq 'readme' ?
-		$self->_print($event, "No such module (or readme): $module") :
-		$self->_print($event, "No such module: $module");
+		$self->_print($event, $self->phrase('readme', {module => $module})) :
+		$self->_print($event, $self->phrase('NO_MODULE', {module => $module}));
 	return;
 }
 
@@ -175,27 +177,41 @@ sub config :Private(notice) :Args(refuse) :Admin :LowPrio
 :Help('Shows the bots configuration') {
 	my ($self, $event) = @_;
 
-	$self->_print($event, 'Adminhost: ' . $self->get('adminhost'));
-	$self->_print($event, 'Alt Nicks: ' . join ', ', $self->alt_nicks) if
-		scalar $self->alt_nicks > 0;
-	$self->_print($event, 'Channels: ' . join ', ', $self->channels);
-	$self->_print($event, 'Ignore List: ' . join ', ', $self->ignore_list) if
-		scalar $self->ignore_list > 0;
-	$self->_print($event, 'Debug: ' . $self->debug);
-	$self->_print($event, 'Group: ' . $self->get('group'));
-	$self->_print($event, 'Inform Channel of New Uploads Interval: ' .
-		$self->get('inform_channel_of_new_uploads'));
-	$self->_print($event, 'Name: ' . $self->name);
-	$self->_print($event, 'News Server: ' . $self->get('news_server'));
-	$self->_print($event, 'Nick: ' . $self->nick);
-	$self->_print($event, 'Port: ' . $self->port);
-	$self->_print($event, 'Reload Indice Interval: ' .
-		$self->get('reload_indices_interval'));
-	$self->_print($event, 'Search Max Results: ' .
-		$self->get('search_max_results'));
-	$self->_print($event, 'Servers: ' . join ', ', $self->servers);
-	$self->_print($event, 'Username: ' . $self->username);
-	$self->_print($event, 'Last indice reload: ' . $self->get('last_indice_reload'));
+	$self->_print($event, $self->phrase('adminhost',
+		{adminhost => $self->get('adminhost')}));
+	$self->_print($event, $self->phrase('alt_nicks',
+		{alt_nicks => join ', ', $self->alt_nicks})) if
+			scalar $self->alt_nicks > 0;
+	$self->_print($event, $self->phrase('channels',
+		{channels => join ', ', $self->channels}));
+	$self->_print($event, $self->phrase('ignore_list',
+		{ignore_list=> join ', ', $self->ignore_list})) if
+			scalar $self->ignore_list > 0;
+	$self->_print($event, $self->phrase('debug',
+		{debug => $self->debug}));
+	$self->_print($event, $self->phrase('group',
+		{group => $self->get('group')}));
+	$self->_print($event, $self->phrase('inform_channel_of_new_uploads',
+		{inform_channel_of_new_uploads =>
+			$self->get('inform_channel_of_new_uploads')}));
+	$self->_print($event, $self->phrase('name',
+		{name => $self->name}));
+	$self->_print($event, $self->phrase('news_server',
+		{news_server => $self->get('news_server')}));
+	$self->_print($event, $self->phrase('nick',
+		{nick => $self->nick}));
+	$self->_print($event, $self->phrase('port',
+		{port => $self->port}));
+	$self->_print($event, $self->phrase('reload_indices_interval',
+		{reload_indices_interval => $self->get('reload_indices_interval')}));
+	$self->_print($event, $self->phrase('search_max_results',
+		{search_max_results => $self->get('search_max_results')}));
+	$self->_print($event, $self->phrase('servers',
+		{servers => join ', ', $self->servers}));
+	$self->_print($event, $self->phrase('username',
+		{username => $self->username}));
+	$self->_print($event, $self->phrase('last_indice_reload',
+		{last_indice_reload => $self->get('last_indice_reload')}));
 }
 
 # this is called the moment we successfully connect to a server
@@ -226,11 +242,25 @@ sub connected {
 sub description :Private(notice) :Public(privmsg) :Args(required)
 :Help('retrieves the description of a module') {
 	my ($self, $event, $module) = @_;
+
+	if (eval{require Module::CPANTS}) {
+		my $package = $self->_get_details($event, $module, 'Package');
+		return unless $package;
+		my $c = Module::CPANTS->new();
+		my $cpants = $c->data;
+		my $data = $cpants->{$package};
+		my $desc = $data->{'description'};
+		if ($desc) {
+			$self->_print($event, $self->phrase({description => $desc}));
+			return;
+		}
+	}
+
 	my $description = $self->_get_details($event, $module, 'Description');
 
 	return unless $description;
 
-	$self->_print($event, $description);
+	$self->_print($event, $self->phrase({description => $description}));
 }
 
 sub details :Private(notice) :Fork :LowPrio :Args(required)
@@ -245,7 +275,8 @@ sub details :Private(notice) :Fork :LowPrio :Args(required)
 	)
 	{   
 		next if $details->rv->{$actual}->{$bit} =~ /^Unknown|None given$/;
-		$self->_print($event, "$bit: " . $details->rv->{$actual}->{$bit});
+		$self->_print($event,
+			$self->phrase({label => $bit, value => $details->rv->{$actual}->{$bit}}));
 	}
 }
 
@@ -255,15 +286,15 @@ sub distributions :Private(notice) :Fork :LowPrio :Args(required)
 	my $cp = $self->get('cp');
 	my $actual_author = $self->_check_author($author);
 
-	if (not $actual_author) {
-		$self->_print($event, "No such author: $author");
+	unless ($actual_author) {
+		$self->_print($event, $self->phrase('NO_AUTHOR', {author => $author}));
 		return;
 	}
 
 	my $distributions = $cp->distributions(authors => [$actual_author]);
 
-	if (not $distributions) {
-		$self->_print($event, "Author '$actual_author' has no distributions");
+	unless ($distributions->rv) {
+		$self->_print($event, $self->phrase('no', {actual_author => $actual_author}));
 		return;
 	}
 
@@ -272,7 +303,7 @@ sub distributions :Private(notice) :Fork :LowPrio :Args(required)
 		$rpt =~ s/\.tar\.gz$//;
 		$rpt =~ s/\.tgz$//;
 		$rpt =~ s/\.zip$//;
-		$self->_print($event, "$rpt");
+		$self->_print($event, $self->phrase('yes', {rpt => "$rpt"}));
 	}
 }
 
@@ -284,7 +315,7 @@ sub docurl :Private(notice) :Public(privmsg) :Args(required)
 
 	my $buffer = "http://search.cpan.org/perldoc?$module";
 
-	$self->_print($event, $buffer);
+	$self->_print($event, $self->phrase({buffer => $buffer}));
 }
 
 sub dlurl :Private(notice) :Public(privmsg) :Args(required)
@@ -298,7 +329,7 @@ sub dlurl :Private(notice) :Public(privmsg) :Args(required)
 	my $buffer = 'http://search.cpan.org/CPAN/authors/id/';
 
 	$buffer .= $path . '/' . $package;
-	$self->_print($event, $buffer);
+	$self->_print($event, $self->phrase({buffer => $buffer}));
 }
 
 # from TUCS, coded by gbarr and from acme's CPAN::WWW::Testers
@@ -375,7 +406,7 @@ sub _get_details {
 sub _get_karma {
 	my $self = shift;
 	my $module = shift;
-	my $ratestr = '(unknown)';
+	my $ratestr = ''; # (unknown)
 	my $dist = $self->_extract_name_version($module);
 
 	if (eval{require Socket; Socket::inet_aton('cpanratings.perl.org')}) {
@@ -391,7 +422,7 @@ sub _get_karma {
 			}
 
 			if (scalar @ratings == 0) {
-				$ratestr = '(unrated)';
+				$ratestr = ''; # (unrated)
 			}
 			else {
 				my $stat = Statistics::Descriptive::Full->new();
@@ -403,11 +434,11 @@ sub _get_karma {
 				$ratestr .= ' ' x (5-$round);
 				$ratestr .= ')';
 
-				$ratestr = '(error)' if length($ratestr) != 7;
+				$ratestr = '' if length($ratestr) != 7; # (error)
 			}
 		}
 		else {
-			$ratestr = '(unrated)';
+			$ratestr = ''; # (unrated)
 		}
 	}
 
@@ -419,9 +450,9 @@ sub help :Private(notice) :LowPrio :Args(optional)
 	my ($self, $event, $command) = @_;
 	my (@public_and_private, @public, @private);
 
-	if (not $command) {
-		$self->_print($event, $self->nick() . ' is brought to you by ' .
-			__PACKAGE__ . " version $VERSION");
+	unless ($command) {
+		$self->_print($event, $self->phrase('by',
+			{nick => $self->nick(), pkg => __PACKAGE__, vers => $VERSION}));
 
 		for my $command (sort $self->_commands()) {
 			if ($self->_private_command($command) &&
@@ -436,15 +467,18 @@ sub help :Private(notice) :LowPrio :Args(optional)
 			}
 		}
 
-		$self->_print($event, "Channel and /msg commands: ".
-			(join ', ', @public_and_private)) if scalar @public_and_private > 0;
-		$self->_print($event, "Channel only commands: ".
-			(join ', ', @public)) if scalar @public > 0;
-		$self->_print($event, "/msg only commands: ".
-			(join ', ', @private)) if scalar @private > 0;
+		$self->_print($event, $self->phrase('both',
+			{commands => (join ', ', @public_and_private)})) if
+				scalar @public_and_private > 0;
+		$self->_print($event, $self->phrase('channel',
+			{commands => (join ', ', @public)})) if
+				scalar @public > 0;
+		$self->_print($event, $self->phrase('msg',
+			{commands => (join ', ', @private)})) if scalar @private > 0;
 	}
 	else {
-		$self->_print($event, $self->_help($command));
+		$self->_print($event,
+			$self->phrase('help', {help => $self->_help($command)}));
 	}
 }
 
@@ -455,7 +489,21 @@ sub language :Private(notice) :Public(privmsg) :Args(required)
 
 	return unless $language;
 
-	$self->_print($event, $language);
+	$self->_print($event, $self->phrase({language => $language}));
+}
+
+sub _module_to_dist {
+	my $self = shift;
+	my $module = shift;
+	my $cp = $self->get('cp');
+	my $mod = $cp->module_tree->{$module} || return $module;
+	my $pkg = $mod->package;
+
+	unless ($pkg =~ s/\.tgz$|\.tar\.gz$|\.zip$//) {
+		return $module;
+	}
+
+	return $pkg;
 }
 
 sub modulelist :Private(notice) :Public(privmsg) :Args(required)
@@ -465,7 +513,7 @@ sub modulelist :Private(notice) :Public(privmsg) :Args(required)
 	my $details = $cp->details(modules => [$module]);
 
 	unless ($details->ok) {
-		$self->_print($event, "No such module: $module");
+		$self->_print($event, $self->phrase('NO_MODULE', {module => $module}));
 		return;
 	}
 
@@ -478,10 +526,10 @@ sub modulelist :Private(notice) :Public(privmsg) :Args(required)
 	if ($desc eq 'None given' and $dev eq 'Unknown' and
 		$interface eq 'Unknown' and $lang eq 'Unknown' and
 		$support eq 'Unknown') {
-		$self->_print($event, "No, $module is not in the module list");
+		$self->_print($event, $self->phrase('no', {module => $module}));
 	}
 	else {
-		$self->_print($event, "Yes, $module is in the module list");
+		$self->_print($event, $self->phrase('yes', {module => $module}));
 	}
 }
 
@@ -492,20 +540,20 @@ sub modules :Private(notice) :Fork :LowPrio :Args(required)
 	my $actual_author = $self->_check_author($author);
 
 	unless ($actual_author) {
-		$self->_print($event, "No such author: $author");
+		$self->_print($event, $self->phrase('NO_AUTHOR', {author => $author}));
 		return;
 	}
 
 	my $modules = $cp->modules(authors => [$actual_author]);
 
-	if (not $modules->rv) {
-		$self->_print($event, "Author ID '$actual_author' has no modules");
+	unless ($modules->rv) {
+		$self->_print($event, $self->phrase('no', {actual_author => $actual_author}));
 		return;
 	}
 
 	for my $rpt (keys %{$modules->rv->{$actual_author}})
 	{   
-		$self->_print($event, "$rpt");
+		$self->_print($event, $self->phrase('yes', {rpt => "$rpt"}));
 	}
 }
 
@@ -516,7 +564,7 @@ sub package :Private(notice) :Public(privmsg) :Args(required)
 
 	return unless $package;
 
-	$self->_print($event, $package);
+	$self->_print($event, $self->phrase({package => $package}));
 }
 
 sub _parse_article {
@@ -555,7 +603,13 @@ sub _parse_article {
 	$self->_add_to_recent($mail->{_cpan_short});
 
 	my $karma = $self->_get_karma($mail->{_cpan_short});
-	my $inform = "$mail->{_cpan_short} $karma by $mail->{_cpan_entered_by}";
+	my $inform;
+	if ($karma) {
+		$inform = "$mail->{_cpan_short} $karma by $mail->{_cpan_entered_by}";
+	}
+	else {
+		$inform = "$mail->{_cpan_short} by $mail->{_cpan_entered_by}";
+	}
 	my $chan_inform = "upload: $inform";
 
 	for my $channel ($self->channels()) {
@@ -572,7 +626,7 @@ sub path :Private(notice) :Public(privmsg) :Args(required)
 	my ($path) = $self->_check_module($event, 'pathname', $module);
 	return unless $path;
 
-	$self->_print($event, "\$CPAN/authors/id$path");
+	$self->_print($event, $self->phrase({CPAN => '$CPAN', path => $path}));
 }
 
 sub readme :Public(privmsg) :Private(notice) :Args(required)
@@ -584,7 +638,7 @@ sub readme :Public(privmsg) :Private(notice) :Args(required)
 	my $who = $event->{who};
 
 	$self->set("readme_$who", $actual);
-	$self->_print($event, "Sending readme for $actual..");
+	$self->_print($event, $self->phrase({actual => $actual}));
 	$self->dcc($who, 'CHAT');
 }
 
@@ -594,11 +648,13 @@ sub recent :Private(notice) :Public(privmsg) :Args(refuse)
 	my @recent = @{$self->get('recent')};
 
 	if (scalar @recent < 1) {
-		$self->_print($event, "I just got here. Give me a bit to get settled. :)");
+		$self->_print($event, $self->phrase('just_got_here'));
 		return;
 	}
 
-	$self->_print($event, join ', ', (reverse @recent));
+	@recent = reverse @recent;
+	my $recent = join ', ', @recent;
+	$self->_print($event, $self->phrase('results', {results => $recent}));
 }
 
 # Unfortunately, until the cpanratings.perl.org people add ratings support
@@ -608,13 +664,17 @@ sub ratings :Private(notice) :Public(privmsg) :Args(required)
 	my ($self, $event, $module) = @_;
 
 	if (!eval{require Socket; Socket::inet_aton('cpanratings.perl.org')}) {
-		$self->_print($event, "cpanratings.perl.org is unavailable");
+		$self->_print($event, $self->phrase('CPANRATINGS_DOWN'));
 		return;
 	}
 
-	my $data = $self->_get_cpanratings('ratings', $module);
-	if (not $data->is_success) {
-		$self->_print($event, "No such distribution: $module");
+	my $package = $self->_module_to_dist($module);
+	my $dist = $self->_extract_name_version($package);
+	my $data = $self->_get_cpanratings('ratings', $dist);
+
+	unless ($data->is_success) {
+		$self->_print($event, $self->phrase('NO_DISTRIBUTION',
+			{module => $module}));
 		return;
 	}
 
@@ -628,7 +688,7 @@ sub ratings :Private(notice) :Public(privmsg) :Args(required)
 	}
 
 	if (scalar @ratings == 0) {
-		$self->_print($event, "No ratings for $module");
+		$self->_print($event, $self->phrase('no_ratings', {module => $module}));
 		return;
 	}
 
@@ -640,19 +700,16 @@ sub ratings :Private(notice) :Public(privmsg) :Args(required)
 	my $min = sprintf "%.1f", $stat->min();
 	my $max = sprintf "%.1f", $stat->max();
 	my $stddev = sprintf "%.1f", $stat->standard_deviation();
+	my $mode = sprintf "%.1f", $stat->mode();
 
 	my $ratings = scalar @ratings;
 	@ratings = reverse @ratings;
 	@ratings = splice @ratings, 0, 5;
+	my $last5 = join ', ', @ratings;
 
-	my $buffer = 'Recent ratings: ';
-	$buffer .= join ', ', @ratings;
-
-	$buffer .=
-		"; Overall (n=$ratings): mean $mean, median $median, min $min, " .
-		"max $max, stddev $stddev";
-
-	$self->_print($event, $buffer);
+	$self->_print($event, $self->phrase('ratings',
+		{ratings => $last5, n => $ratings, mean => $mean, median => $median,
+		min => $min, max => $max, stddev => $stddev, mode => $mode}));
 }
 
 sub _ratings_for_reviews {
@@ -676,25 +733,28 @@ sub reviews :Private(notice) :Fork :LowPrio :Args(required)
 	my ($self, $event, $module) = @_;
 
 	if (!eval{require Socket; Socket::inet_aton('cpanratings.perl.org')}) {
-		$self->_print($event, "cpanratings.perl.org is unavailable");
+		$self->_print($event, $self->phrase('CPANRATINGS_DOWN'));
 		return;
 	}
 
-	my $data = $self->_get_cpanratings('reviews', $module);
+	my $package = $self->_module_to_dist($module);
+	my $dist = $self->_extract_name_version($package);
+	my $data = $self->_get_cpanratings('reviews', $dist);
 	my $items;
 	my $p = new XML::RSS::Parser;
 
 	unless (eval {$p->parse($data->content)}) {
-		$self->_print($event, "No such distribution: $module");
+		$self->_print($event, $self->phrase('NO_DISTRIBUTION',
+			{module => $module}));
 		return;
 	}
 
 	unless ($items = $p->items) {
-		$self->_print($event, "No reviews for $module");
+		$self->_print($event, $self->phrase('no_reviews', {module => $module}));
 		return;
 	}
 
-	my @r2r = @{$self->_ratings_for_reviews($module)};
+	my @r2r = @{$self->_ratings_for_reviews($dist)};
 	my $encode = eval{require Encode; import Encode 'decode_utf8'};
 	my $count = 0;
 
@@ -707,7 +767,7 @@ sub reviews :Private(notice) :Fork :LowPrio :Args(required)
 			$description = decode_utf8($description);
 		}
 
-		$self->_print($event, "$creator: $description ($r2r[$count])\n");
+		$self->_print($event, $self->phrase('review', {creator => $creator, description => $description, rating => $r2r[$count]}));
 		$count++;
 	}
 }
@@ -722,12 +782,12 @@ sub rt :Private(notice) :Public(privmsg) :Args(required)
 	my $package = $url->package();
 
 	unless ($package =~ s/\.tgz$|\.tar\.gz$|\.zip$//) {
-		$self->_print($event, "Unable to get url for: $actual");
+		$self->_print($event, $self->phrase({actual => $actual}));
 		return;
 	}
 
 	$buffer .= $package;
-	$self->_print($event, $buffer);
+	$self->_print($event, $self->phrase('success', {buffer => $buffer}));
 }
 
 sub search :Private(notice) :Args(required) :LowPrio
@@ -742,14 +802,16 @@ sub search :Private(notice) :Args(required) :LowPrio
 	}
 
 	if (scalar @cache > $self->get('search_max_results')) {
-		$self->_print($event, "Too many matches (${\(scalar @cache)} > ${\($self->get('search_max_results'))}). Be more specific please");
+		$self->_print($event, $self->phrase('too_many_matches',
+			{matches => scalar @cache,
+			search_max_results => $self->get('search_max_results')}));
 	}
 	elsif (scalar @cache == 0) {
-		$self->_print($event, "No matches");
+		$self->_print($event, $self->phrase('no_matches'));
 	}
 	else {
 		for my $key (sort @cache) {
-			$self->_print($event, $key);
+			$self->_print($event, $self->phrase('success', {key => $key}));
 		}
 	}
 }
@@ -761,7 +823,7 @@ sub stage :Private(notice) :Public(privmsg) :Args(required)
 
 	return unless $stage;
 
-	$self->_print($event, $stage);
+	$self->_print($event, $self->phrase({stage => $stage}));
 }
 
 sub status :Private(notice) :Public(privmsg) :Args(refuse)
@@ -769,8 +831,9 @@ sub status :Private(notice) :Public(privmsg) :Args(refuse)
 	my ($self, $event) = @_;
 	my $requests = $self->get('requests');
 
-	$self->_print($event, sprintf "%d request%s since I started up at %s",
-		$requests, $requests == 1 ? '' : 's', scalar localtime($^T));
+	$self->_print($event, $self->phrase(
+		{requests => $requests, s => $requests == 1 ? '' : 's',
+		start_time => scalar localtime($^T)}));
 }
 
 sub style :Private(notice) :Public(privmsg) :Args(required)
@@ -780,7 +843,7 @@ sub style :Private(notice) :Public(privmsg) :Args(required)
 
 	return unless $style;
 
-	$self->_print($event, $style);
+	$self->_print($event, $self->phrase({style => $style}));
 }
 
 sub support :Private(notice) :Public(privmsg) :Args(required)
@@ -790,7 +853,7 @@ sub support :Private(notice) :Public(privmsg) :Args(required)
 
 	return unless $support;
 
-	$self->_print($event, $support);
+	$self->_print($event, $self->phrase({support => $support}));
 }
 
 sub tests :Private(notice) :Fork :LowPrio :Args(required)
@@ -799,16 +862,17 @@ sub tests :Private(notice) :Fork :LowPrio :Args(required)
 	my ($report, $actual) = $self->_check_module($event, 'reports', $module);
 	return unless $report;
 
-	if (not $report->rv->{$actual}) {
-		$self->_print($event, "No test reports for: $actual");
+	unless ($report->rv->{$actual}) {
+		$self->_print($event, $self->phrase('no_tests', {actual => $actual}));
 	}
 	else {
-		$self->_print($event, sprintf "%d test report%s for $actual",
-			scalar @{$report->rv->{$actual}},
-			@{$report->rv->{$actual}} == 1 ? '' : 's');
+		$self->_print($event, $self->phrase('summary',
+			{tests => scalar @{$report->rv->{$actual}},
+			s => @{$report->rv->{$actual}} == 1 ? '' : 's',
+			actual => $actual}));
 
 		for my $rpt (@{$report->rv->{$actual}}) {
-			$self->_print($event, "$rpt->{grade} $rpt->{platform}");
+			$self->_print($event, $self->phrase('test', {grade => $rpt->{grade}, platform => $rpt->{platform}}));
 		}
 	}
 }
@@ -819,24 +883,23 @@ sub url :Private(notice) :Public(privmsg) :Args(required)
 	my ($url, $actual) = $self->_check_module($event, 'module_tree', $module);
 	return unless $url;
 
-	my $buffer = 'http://search.cpan.org/';
 	my $author  = $url->author();
 	my $package = $url->package();
 
 	unless ($package =~ s/\.tgz$|\.tar\.gz$|\.zip$//) {
-		$self->_print($event, "Unable to get url for: $actual");
+		$self->_print($event, $self->phrase('unable_to_get_url',
+			{actual => $actual}));
 		return;
 	}
 
 	my $dist = $self->_extract_name_version($package);
 
-	if (not $dist) {
-		$buffer .= 'author/' . $author . '/' . $package . '/';
-		$self->_print($event, $buffer);
+	unless ($dist) {
+		$self->_print($event, $self->phrase('not_dist',
+			{author => $author, package => $package}));
 	}
 	else {
-		$buffer .= 'dist/' . $dist . '/';
-		$self->_print($event, $buffer);
+		$self->_print($event, $self->phrase('dist', {dist => $dist}));
 	}
 }
 
@@ -847,7 +910,7 @@ sub version :Private(notice) :Public(privmsg) :Args(required)
 
 	return unless $version;
 
-	$self->_print($event, $version);
+	$self->_print($event, $self->phrase({version => $version}));
 }
 
 sub whois :Private(notice) :Public(privmsg) :Args(required)
@@ -857,7 +920,7 @@ sub whois :Private(notice) :Public(privmsg) :Args(required)
 	my $actual_author = $self->_check_author($author);
 
 	unless ($actual_author) {
-		$self->_print($event, "No such author: $author");
+		$self->_print($event, $self->phrase('NO_AUTHOR', {author => $author}));
 		return;
 	}
 
@@ -865,7 +928,7 @@ sub whois :Private(notice) :Public(privmsg) :Args(required)
 	my $name = $cpanauthor->name;
 	my $email = $cpanauthor->email || 'no email';
 
-	$self->_print($event, "$name ($email)");
+	$self->_print($event, $self->phrase({name => $name, email => $email}));
 }
 
 sub wikiurl :Private(notice) :Public(privmsg) :Args(required)
@@ -874,9 +937,7 @@ sub wikiurl :Private(notice) :Public(privmsg) :Args(required)
 	my ($url, $actual) = $self->_check_module($event, 'module_tree', $module);
 	return unless $url;
 
-	my $buffer = "http://cpan.japh.org/?$module";
-
-	$self->_print($event, $buffer);
+	$self->_print($event, $self->phrase({module => $module}));
 }
 
 # special timed event handlers below
@@ -906,7 +967,7 @@ sub _inform_channel_of_new_uploads {
 				$mail->tidy_body;
 				my $retval = $self->_parse_article($mail);
 
-				if (not $retval) { $match++ }
+				unless ($retval) { $match++ }
 				elsif ($retval == 1) { $no_body_match++ }
 				elsif ($retval == 2) { $no_filename_match++ }
 				$checked++;

@@ -30,14 +30,13 @@ SYNOPSIS
       );
       $bot->run();
 
-DESCRIPTION
-    This is a developer release of Bot::CPAN. You should not expect that the
-    API will remain stable, as this is currently a work in progress.
+      # OR, see the 'cpanbot' script for an alternative
 
+DESCRIPTION
     Bot::CPAN is a POE based distribution that allows individuals on IRC to
-    query the CPAN in a great number of different ways. Bot::CPAN will also
-    automatically inform the channels of new uploads to the CPAN (by
-    default).
+    query the CPAN and other perl resources in a great number of different
+    ways. Bot::CPAN will also automatically inform the channels of new
+    uploads to the CPAN.
 
 IRC EXAMPLES
       cpan: version of Test::Reporter
@@ -293,9 +292,13 @@ RATINGS
     cpanratings.perl.org (aka karma). Possible ratings are 1 through 5. The
     area between the parens is fixed-width which means if a distribution has
     an average rounded ratinging of '2' if will be padded with 3 spaces.
-    (unknown) will be displayed if the bot cannot connect to the data
-    source, (unrated) will be displayed if the module has yet to receieve
-    any ratings, and (error) will occur if something went wrong.
+
+    It used to be that (unknown) would be displayed if the bot cannot
+    connect to the data source, (unrated) would be displayed if the module
+    has yet to receieve any ratings, and (error) would be displayed if
+    something went wrong. However, after some discussion on #perl@MagNET,
+    the karma representation will be omitted unless there is an actual karma
+    rating to display.
 
     There were competing "karma represetations" floated on #perl@MagNET,
     such as "letter-grades", and "descriptive words" but in the end, the
@@ -316,9 +319,7 @@ BUGS
     you.
 
 TODO
-      - Write more tests.
       - Defer adding 'bugs' command until CPANPLUS::Backend supports RT's API
-      - I.e., http://rt.cpan.org/NoAuth/last10.txt?Queue=dist
       - Add support for "pacing" (suggested by Spoon) i.e., if several uploads
         occur at the same time, pace the reporting of such to a pre-determined
         number of upload notification per minute
@@ -328,32 +329,45 @@ COPYRIGHT
       Copyright (c) 2003 Casey West. All rights reserved.
 
 LICENSE
-    This program is free software; you may redistribute it and/or modify it
-    under the same terms as Perl itself.
+    This program is free software; you can redistribute it and/or modify it
+    under the terms of the GNU General Public License as published by the
+    Free Software Foundation; either version 2 of the License, or (at your
+    option) any later version.
+
+    This program is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+    Public License for more details.
 
 SEE ALSO
-    * the perl manpage
-    * the Attribute::Handlers manpage
-    * the Bot::BasicBot manpage
-    * the CPANPLUS manpage
-    * the Encode manpage
-    * the HTTP::Request manpage
-    * the LWP::UserAgent manpage
-    * the Module::Signature manpage
-    * the POE manpage
-    * the POE::Component::IRC manpage
-    * the Mail::Internet manpage
-    * the Math::Round manpage
-    * the Net::NNTP manpage
-    * the Statistics::Descriptive manpage
-    * the URI manpage
-    * the XML::Parser manpage
-    * the XML::RSS::Parser manpage
-AUTHOR
+    * perl
+    * Attribute::Handlers
+    * Bot::BasicBot
+    * Config::Auto
+    * CPANPLUS
+    * Encode
+    * Getopt::Long
+    * HTTP::Request
+    * LWP::UserAgent
+    * Module::CPANTS
+    * Module::Signature
+    * POE
+    * POE::Component::IRC
+    * Mail::Internet
+    * Math::Round
+    * Net::NNTP
+    * Statistics::Descriptive
+    * URI
+    * XML::Parser
+    * XML::RSS::Parser
+
+AUTHORS
     Adam J. Foxson <afoxson@pobox.com>, with patches from Casey West
     <cwest@cpan.org> to support the latest POE versions, Randal Schwartz
     <merlyn@stonehenge.com> to support NNTP retrieval of CPAN uploads (as
     opposed to the old way of doing it via mailbox polling), and Rocco
     Caputo <troc+cpan@pobox.com> that solved early-on blocking issues, and
-    got the prioritized events patch into the P::C::I core..
+    got the prioritized events patch into the P::C::I core. Special thanks
+    goes out to Iain Truskett for diligent testing and the suggestion of
+    many spiffy features.
 

@@ -1,5 +1,5 @@
-# $Rev: 82 $
-# $Id: BasicBot.pm 82 2003-08-20 06:02:45Z afoxson $
+# $Revision: 1.4 $
+# $Id: BasicBot.pm,v 1.4 2003/08/28 09:32:33 afoxson Exp $
 
 package Bot::CPAN::BasicBot;
 
@@ -22,7 +22,7 @@ use vars qw(@ISA @EXPORT $VERSION);
 @ISA    = qw(Exporter);
 @EXPORT = qw(say emote);
 
-($VERSION) = sprintf "%.02f", (('$Rev: 82 $' =~ /\s+(\d+)\s+/)[0] / 100);
+($VERSION) = '$Revision: 1.4 $' =~ /\s+(\d+\.\d+)\s+/;
 
 =head1 NAME
 
@@ -902,7 +902,7 @@ sub irc_received_state {
     $this->log("=> /msg ${\($this->nick)} $mess->{body} (from $mess->{who}) <=\n");
   }
   else {
-    $this->log("=> $mess->{who}:${\($mess->{address} ? ' ' . $mess->{address} : '')} $mess->{body} (from $mess->{channel}) <=\n");
+    $this->log("=> $mess->{who}:${\($mess->{address} ? ' ' . $mess->{address} : '')}$mess->{body} (from $mess->{channel}) <=\n");
   }
   }
 

@@ -1,15 +1,18 @@
-# $Rev: 74 $
-# $Id: Glue.pm 74 2003-07-23 00:05:07Z afoxson $
-
+# $Revision: 1.4 $
+# $Id: Glue.pm,v 1.4 2003/08/28 09:32:33 afoxson Exp $
+#
 # Bot::CPAN::Glue - Deep magic for Bot::CPAN
 # Copyright (c) 2003 Adam J. Foxson. All rights reserved.
 
-# This program is free software; you can redistribute it and/or modify
-# it under the same terms as Perl itself.
-
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# This program is free software; you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation; either version 2 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+# details.
 
 package Bot::CPAN::Glue;
 
@@ -19,6 +22,7 @@ use strict;
 use POE;
 use vars qw(@ISA @EXPORT $VERSION %commands);
 use Bot::CPAN::BasicBot;
+use Class::Phrasebook;
 use constant NOT_A_COMMAND   => 0;
 use constant PUBLIC_COMMAND  => 1<<0;
 use constant PRIVATE_COMMAND => 1<<1;
@@ -42,8 +46,8 @@ use Attribute::Handlers autotie => {
 	'__CALLER__::Admin'   => __PACKAGE__,
 };
 
-($VERSION) = sprintf "%.02f", (('$Rev: 74 $' =~ /\s+(\d+)\s+/)[0] / 100);
-@ISA       = qw(Bot::CPAN::BasicBot);
+($VERSION) = '$Revision: 1.4 $' =~ /\s+(\d+\.\d+)\s+/;
+@ISA = qw(Bot::CPAN::BasicBot);
 
 local $^W;
 
@@ -202,6 +206,17 @@ sub new {
 	}
 
 	$upstream->_verify_policy();
+
+	# mix in the phrasebook
+	my $pm = $INC{'Bot/CPAN.pm'};
+	$pm =~ s/\.pm//;
+	my $pb = Class::Phrasebook->new(undef, "$pm/phrases.xml");
+
+	die "Unable to load phrasebook.\n" unless defined $pb;
+
+	$pb->remove_new_lines(1);
+	$pb->load("EN");
+	$upstream->set('pb', $pb);
 
 	return $upstream;
 }
@@ -394,7 +409,7 @@ sub _verify_auth {
 			return 1;
 		}
 		else {
-			$self->log("$message->{who} tried to use admin command $command\n");
+			$self->log("$message->{userhost} tried to use admin command $command\n");
 			$message->{body} = "'$command' is an admin only command";
 			$self->_return($message);
 			return;
@@ -402,6 +417,59 @@ sub _verify_auth {
 	}
 
 	return 1;
+}
+
+sub phrase {
+	my $self = shift;
+	my ($filename, $line, $caller) = (caller(1))[1..3];
+	my $actual = shift if not $caller;
+	my ($phrase, $subphrase);
+	my $pb = $self->get('pb');
+
+	if (@_) {
+		if (ref $_[0] and ref $_[0] eq 'HASH') {
+			$caller = $actual if $actual;
+			unless ($phrase = $pb->get($caller, @_)) {
+				$phrase = __PACKAGE__ . ": phrase not found for " .
+					"$caller with hash arg at $filename:$line";
+			}
+		}
+		else {
+			$subphrase = shift;
+
+			if ($subphrase eq uc($subphrase)) {
+				$subphrase = $actual if $actual;
+				unless ($phrase = $pb->get($subphrase, @_)) {
+					$phrase = __PACKAGE__ . ": phrase not found for " .
+						"global $subphrase at $filename:$line";
+				}
+			}
+			else {
+				if ($actual) {
+					$caller = $actual;
+				}
+				else {
+					$caller .= "($subphrase)";
+				}
+				unless ($phrase = $pb->get($caller, @_)) {
+					$phrase = __PACKAGE__ . ": phrase not found for " .
+						"$caller($subphrase) with args at $filename:$line";
+				}
+			}
+		}
+	}
+	else {
+		$caller = $actual if $actual;
+		unless ($phrase = $pb->get($caller)) {
+			$phrase = __PACKAGE__ . ": phrase not found for " .
+				"$caller without args at $filename:$line";
+		}
+	}
+
+	$phrase =~ s/^\s+//;
+	$phrase =~ s/\s+$//;
+
+	return $phrase;
 }
 
 # and here are the attribute handlers

@@ -1,5 +1,25 @@
 Revision history for Perl extension Bot::CPAN.
 
+1.7  Thu Aug 28 05:28:04 2003
+      - Added new test suite 'phrases.t', with 68 tests
+      - All messages abstracted out to lib/Bot/CPAN/phrases.xml, thanks to
+        Class::Phrasebook
+      - 'ratings' & 'reviews' now do auto-module-to-dist translation (per spoon)
+      - Added 'mode' stat to 'ratings' (per cwest)
+      - Optional 'cpanbot' script is now stable, but experimental. AppConfig
+        was dumped in favor of Getopt::Long and Config::Auto (per cwest)
+      - Fixed a display bug that added an extraneous space whilst logging events
+      - Added optional support for better guessing of distribution descriptions
+        via Module::CPANTS
+      - Syncronized B::C::BasicBot 0.05 against Bot-BasicBot-0.2; which means
+        to say that i've reviewed the diffs and found nothing compelling to
+        change :)
+      - Fixed a bug with the 'distributions' command
+      - Added support for CPANPLUS version 0.043
+      - Karma ratings (+++++) for upload notifications will only be shown if
+        there is a karma rating *to* be shown, i.e., (unrated) is no longer
+        displayed (per schwern)
+
 0.83  Fri Aug 22 19:54:29 2003
       - Changed display format of 'ratings'
 

@@ -1,0 +1,213 @@
+<?xml version="1.0"?>
+<!DOCTYPE phrasebook [
+	<!ELEMENT phrasebook (dictionary)*>              
+	<!ELEMENT dictionary (phrase)*>
+	<!ATTLIST dictionary name CDATA #REQUIRED>
+	<!ELEMENT phrase (#PCDATA)>
+	<!ATTLIST phrase name CDATA #REQUIRED>
+]>
+<phrasebook>
+	<dictionary name="EN">
+		<phrase name="NO_MODULE">
+			No such module: $module
+		</phrase>
+		<phrase name="NO_DISTRIBUTION">
+			No such distribution: $module
+		</phrase>
+		<phrase name="NO_AUTHOR">
+			No such author: $author
+		</phrase>
+		<phrase name="CPANRATINGS_DOWN">
+			cpanratings.perl.org is unavailable
+		</phrase>
+		<phrase name="Bot::CPAN::author">
+			$author
+		</phrase>
+		<phrase name="Bot::CPAN::botsnack">
+			:)
+		</phrase>
+		<phrase name="Bot::CPAN::_check_module(new)">
+			$module is a brand new distribution. I'll have details shortly.
+		</phrase>
+		<phrase name="Bot::CPAN::_check_module(readme)">
+			No such module (or readme): $module
+		</phrase>
+		<phrase name="Bot::CPAN::config(adminhost)">
+			Adminhost: $adminhost
+		</phrase>
+		<phrase name="Bot::CPAN::config(alt_nicks)">
+			Alt Nicks: $alt_nicks
+		</phrase>
+		<phrase name="Bot::CPAN::config(channels)">
+			Channels: $channels
+		</phrase>
+		<phrase name="Bot::CPAN::config(ignore_list)">
+			Ignore List: $ignore_list
+		</phrase>
+		<phrase name="Bot::CPAN::config(debug)">
+			Debug: $debug
+		</phrase>
+		<phrase name="Bot::CPAN::config(group)">
+			Group: $group
+		</phrase>
+		<phrase name="Bot::CPAN::config(inform_channel_of_new_uploads)">
+			Inform Channel of New Uploads Interval: $inform_channel_of_new_uploads
+		</phrase>
+		<phrase name="Bot::CPAN::config(name)">
+			Name: $name
+		</phrase>
+		<phrase name="Bot::CPAN::config(news_server)">
+			News Server: $news_server
+		</phrase>
+		<phrase name="Bot::CPAN::config(nick)">
+			Nick: $nick
+		</phrase>
+		<phrase name="Bot::CPAN::config(port)">
+			Port: $port
+		</phrase>
+		<phrase name="Bot::CPAN::config(reload_indices_interval)">
+			Reload Indice Interval: $reload_indices_interval
+		</phrase>
+		<phrase name="Bot::CPAN::config(search_max_results)">
+			Search Max Results: $search_max_results
+		</phrase>
+		<phrase name="Bot::CPAN::config(servers)">
+			Servers: $servers
+		</phrase>
+		<phrase name="Bot::CPAN::config(username)">
+			Username: $username
+		</phrase>
+		<phrase name="Bot::CPAN::config(last_indice_reload)">
+			Last indice reload: $last_indice_reload
+		</phrase>
+		<phrase name="Bot::CPAN::description">
+			$description
+		</phrase>
+		<phrase name="Bot::CPAN::details">
+			$label: $value
+		</phrase>
+		<phrase name="Bot::CPAN::distributions(no)">
+			Author '$actual_author' has no distributions
+		</phrase>
+		<phrase name="Bot::CPAN::distributions(yes)">
+			$rpt
+		</phrase>
+		<phrase name="Bot::CPAN::docurl">
+			$buffer
+		</phrase>
+		<phrase name="Bot::CPAN::dlurl">
+			$buffer
+		</phrase>
+		<phrase name="Bot::CPAN::help(by)">
+			$nick is brought to you by $pkg version $vers
+		</phrase>
+		<phrase name="Bot::CPAN::help(both)">
+			Channel and /msg commands: $commands
+		</phrase>
+		<phrase name="Bot::CPAN::help(channel)">
+			Channel only commands: $commands
+		</phrase>
+		<phrase name="Bot::CPAN::help(msg)">
+			/msg only commands: $commands
+		</phrase>
+		<phrase name="Bot::CPAN::help(help)">
+			$help
+		</phrase>
+		<phrase name="Bot::CPAN::language">
+			$language
+		</phrase>
+		<phrase name="Bot::CPAN::modulelist(no)">
+			No, $module is not in the module list
+		</phrase>
+		<phrase name="Bot::CPAN::modulelist(yes)">
+			Yes, $module is in the module list
+		</phrase>
+		<phrase name="Bot::CPAN::modules(no)">
+			Author ID '$actual_author' has no modules
+		</phrase>
+		<phrase name="Bot::CPAN::modules(yes)">
+			$rpt
+		</phrase>
+		<phrase name="Bot::CPAN::package">
+			$package
+		</phrase>
+		<phrase name="Bot::CPAN::path">
+			$CPAN/authors/id$path
+		</phrase>
+		<phrase name="Bot::CPAN::readme">
+			Sending readme for $actual..
+		</phrase>
+		<phrase name="Bot::CPAN::recent(just_got_here)">
+			I just got here. Give me a bit to get settled. :)
+		</phrase>
+		<phrase name="Bot::CPAN::recent(results)">
+			$results
+		</phrase>
+		<phrase name="Bot::CPAN::ratings(no_ratings)">
+			No ratings for: $module
+		</phrase>
+		<phrase name="Bot::CPAN::ratings(ratings)">
+			Recent ratings: $ratings; Overall (n=$n): mean $mean, median $median, min $min, max $max, stddev $stddev, mode $mode
+		</phrase>
+		<phrase name="Bot::CPAN::reviews(no_reviews)">
+			No reviews for: $module
+		</phrase>
+		<phrase name="Bot::CPAN::reviews(review)">
+			$creator: $description ($rating)
+		</phrase>
+		<phrase name="Bot::CPAN::rt">
+			Unable to get url for: $actual
+		</phrase>
+		<phrase name="Bot::CPAN::rt(success)">
+			$buffer
+		</phrase>
+		<phrase name="Bot::CPAN::search(too_many_matches)">
+			Too many matches $matches > $search_max_results. Be more specific please
+		</phrase>
+		<phrase name="Bot::CPAN::search(no_matches)">
+			No matches
+		</phrase>
+		<phrase name="Bot::CPAN::search(success)">
+			$key
+		</phrase>
+		<phrase name="Bot::CPAN::stage">
+			$stage
+		</phrase>
+		<phrase name="Bot::CPAN::status">
+			$requests request$s since I started up at $start_time
+		</phrase>
+		<phrase name="Bot::CPAN::style">
+			$style
+		</phrase>
+		<phrase name="Bot::CPAN::support">
+			$support
+		</phrase>
+		<phrase name="Bot::CPAN::tests(no_tests)">
+			No test reports for: $actual
+		</phrase>
+		<phrase name="Bot::CPAN::tests(summary)">
+			$tests test report$s for $actual
+		</phrase>
+		<phrase name="Bot::CPAN::tests(test)">
+			$grade $platform
+		</phrase>
+		<phrase name="Bot::CPAN::url(unable_to_get_url)">
+			Unable to get url for: $actual
+		</phrase>
+		<phrase name="Bot::CPAN::url(not_dist)">
+			http://search.cpan.org/author/$author/$package/
+		</phrase>
+		<phrase name="Bot::CPAN::url(dist)">
+			http://search.cpan.org/dist/$dist/
+		</phrase>
+		<phrase name="Bot::CPAN::version">
+			$version
+		</phrase>
+		<phrase name="Bot::CPAN::whois">
+			$name ($email)
+		</phrase>
+		<phrase name="Bot::CPAN::wikiurl">
+			http://cpan.japh.org/?$module
+		</phrase>
+	</dictionary>
+</phrasebook>

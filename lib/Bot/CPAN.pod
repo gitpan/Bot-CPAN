@@ -34,14 +34,14 @@ Bot::CPAN - provides CPAN services via IRC
   );
   $bot->run();
 
+  # OR, see the 'cpanbot' script for an alternative
+
 =head1 DESCRIPTION
 
-This is a developer release of Bot::CPAN. You should not expect that the API
-will remain stable, as this is currently a work in progress.
-
 Bot::CPAN is a POE based distribution that allows individuals on IRC to query
-the CPAN in a great number of different ways. Bot::CPAN will also automatically
-inform the channels of new uploads to the CPAN (by default).
+the CPAN and other perl resources in a great number of different ways.
+Bot::CPAN will also automatically inform the channels of new uploads to the
+CPAN.
 
 =head1 IRC EXAMPLES
 
@@ -367,9 +367,13 @@ What is up with all of the +'s? The plus signs within the parens represent
 the distributions average rounded rating from cpanratings.perl.org (aka karma).
 Possible ratings are 1 through 5. The area between the parens is fixed-width
 which means if a distribution has an average rounded ratinging of '2' if will
-be padded with 3 spaces. (unknown) will be displayed if the bot cannot connect
-to the data source, (unrated) will be displayed if the module has yet to
-receieve any ratings, and (error) will occur if something went wrong.
+be padded with 3 spaces.
+
+It used to be that (unknown) would be displayed if the bot cannot connect to
+the data source, (unrated) would be displayed if the module has yet to receieve
+any ratings, and (error) would be displayed if something went wrong. However,
+after some discussion on #perl@MagNET, the karma representation will be
+omitted unless there is an actual karma rating to display.
 
 There were competing "karma represetations" floated on #perl@MagNET, such as
 "letter-grades", and "descriptive words" but in the end, the incremement style
@@ -392,9 +396,7 @@ If you happen to find one please email me at afoxson@pobox.com. Thank you.
 
 =head1 TODO
 
-  - Write more tests.
   - Defer adding 'bugs' command until CPANPLUS::Backend supports RT's API
-  - I.e., http://rt.cpan.org/NoAuth/last10.txt?Queue=dist
   - Add support for "pacing" (suggested by Spoon) i.e., if several uploads
     occur at the same time, pace the reporting of such to a pre-determined
     number of upload notification per minute
@@ -406,8 +408,15 @@ If you happen to find one please email me at afoxson@pobox.com. Thank you.
 
 =head1 LICENSE
 
-This program is free software; you may redistribute it and/or modify it under
-the same terms as Perl itself.
+This program is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation; either version 2 of the License, or (at your option) any later
+version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+details.
 
 =head1 SEE ALSO
 
@@ -419,13 +428,19 @@ the same terms as Perl itself.
 
 =item * L<Bot::BasicBot>
 
+=item * L<Config::Auto>
+
 =item * L<CPANPLUS>
 
 =item * L<Encode>
 
+=item * L<Getopt::Long>
+
 =item * L<HTTP::Request>
 
 =item * L<LWP::UserAgent>
+
+=item * L<Module::CPANTS>
 
 =item * L<Module::Signature>
 
@@ -449,13 +464,14 @@ the same terms as Perl itself.
 
 =back
 
-=head1 AUTHOR
+=head1 AUTHORS
 
 Adam J. Foxson E<lt>F<afoxson@pobox.com>E<gt>, with patches from Casey West
 E<lt>F<cwest@cpan.org>E<gt> to support the latest POE versions, Randal Schwartz
 E<lt>F<merlyn@stonehenge.com>E<gt> to support NNTP retrieval of CPAN uploads
 (as opposed to the old way of doing it via mailbox polling), and Rocco Caputo
 E<lt>F<troc+cpan@pobox.com>E<gt> that solved early-on blocking issues, and got
-the prioritized events patch into the P::C::I core..
+the prioritized events patch into the P::C::I core. Special thanks goes out to
+Iain Truskett for diligent testing and the suggestion of many spiffy features.
 
 =cut
