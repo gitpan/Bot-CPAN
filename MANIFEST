@@ -5,6 +5,7 @@ Makefile.PL
 README
 etc/botbasic.patch
 etc/cpanbot.sh
+etc/poecomponentirc.patch
 lib/Bot/CPAN.pm
 lib/Bot/CPAN.pod
 t/bot.t

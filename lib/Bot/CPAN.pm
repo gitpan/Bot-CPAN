@@ -1,5 +1,5 @@
-# $Revision: 1.6 $
-# $Id: CPAN.pm,v 1.6 2003/03/10 01:39:33 afoxson Exp $
+# $Revision: 1.7 $
+# $Id: CPAN.pm,v 1.7 2003/03/10 06:50:10 afoxson Exp $
 
 # Bot::CPAN - provides CPAN services via IRC
 # Copyright (c) 2003 Adam J. Foxson. All rights reserved.
@@ -27,7 +27,7 @@ use constant PRIVATE_COMMAND => (1<<1);
 use constant FORK => (1<<2);
 
 @ISA = qw(Bot::BasicBot);
-$VERSION = '0.01_01';
+$VERSION = '0.01_02';
 $SERVER = 'nntp.perl.org'; # may end up storing this elsewhere
 $GROUP = 'perl.cpan.testers'; # may end up storing this elsewhere
 
@@ -314,9 +314,8 @@ sub _fork_msg_handler {
 	$body =~ s/$passthrough_pattern: //;
 
 	my $args = $self->{forks}->{$wheel_id}->{args};
-
-	$args->{body} = $body;
-	$self->say($args);
+	my $who = $args->{who};
+	$self->privmsglow($who, $body);
 }
 
 # Why do we do this? Essentially, we are forced to, due to B::B and POE
