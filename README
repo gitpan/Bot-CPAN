@@ -42,23 +42,58 @@ METHODS
 
 COMMANDS
         * author
+            retrieves the author of a module
+
         * botsnack
+            gives the bot a snack
+
         * description
+            retrieves the description of a module
+
         * details
+            retrieves full details of a module
+
         * distributions
+            retrieves all of the distributions by an author
+
         * help
+            provides instruction on how to use this bot
+
         * language
+            retrieves the language of a module
+
         * modules
+            retrieves the modules created by a given author
+
         * package
+            retrieves the package of a module
+
         * path
+            retrieves the full CPAN path of a module
+
         * recent
+            shows last ten distributions uploaded to the CPAN
+
         * stage
+            retrieves the stage of a module
+
         * status
+            retrieves the status of the bot
+
         * style
+            retrieves the style of a module
+
         * support
+            retrieves the support level of a module
+
         * tests
+            retrieves the test results of a module
+
         * url
+            retrieves the www path to a module
+
         * version
+            retrieves the latest version of a module
 
 ATTRIBUTES
         * :Private
@@ -109,13 +144,32 @@ CAVEATS
             The patches have been sent to the upstream authors. The patches
             can be found in etc/.
 
+            Also, if you expect the bot to have very recent CPAN data, be
+            sure that CPANPLUS is set to get indexes directly from
+            ftp.funet.fi.
+
+            Bot::BasicBot's alt_nicks doesn't do what you think. It's NOT
+            for specifying alternate nicks to use for connecting to IRC if
+            the one you chose is taken. It's used for specifying nicks that
+            you'd like the bot to respond to via proxy.
+
+HOW TO WRITE A NEW COMMAND
+            Simple really. Define a subroutine, in CPAN.pm, and add whatever
+            attributes you'd like to it's signature (see above). You will be
+            passed three arguments, the referrent object, the event hashref,
+            and the command's actual argument. To get data back to the user,
+            simply use $self->print(). It's first argument should be the
+            event hashref and the other argument is whatever you want to
+            return to the user.
+
 BUGS
             If you happen to find one please email me at afoxson@pobox.com.
             Thank you.
 
 TODO
               - Write actual tests.
-              - Add support for 'fetch', 'readme', and 'whois'.
+              - Add support for 'fetch', 'readme', 'bugs', 'lastupdate', and 'whois'.
+              - Prepare for non-developer release
 
 COPYRIGHT
               Copyright (c) 2003 Adam J. Foxson. All rights reserved.

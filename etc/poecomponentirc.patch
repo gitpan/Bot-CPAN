@@ -1,14 +1,14 @@
 *** IRC.pm	Sun Feb  2 18:23:21 2003
---- /Library/Perl/POE/Component/IRC.pm	Mon Mar 10 01:00:56 2003
+--- /Library/Perl/POE/Component/IRC.pm	Thu Mar 13 00:49:46 2003
 ***************
 *** 64,70 ****
 --- 64,72 ----
       'squit'     => [ PRI_HIGH,   \&onlytwoargs,   ],
       'kill'      => [ PRI_HIGH,   \&onlytwoargs,   ],
       'privmsg'   => [ PRI_NORMAL, \&privandnotice, ],
-+     'privmsglow' => [ PRI_HIGH+5,   \&privandnotice, ],
++     'privmsglow' => [ PRI_NORMAL+5,   \&privandnotice, ],
       'notice'    => [ PRI_NORMAL, \&privandnotice, ],
-+     'noticelow'  => [ PRI_HIGH+5,   \&privandnotice, ],
++     'noticelow'  => [ PRI_NORMAL+5,   \&privandnotice, ],
       'join'      => [ PRI_HIGH,   \&oneortwo,      ],
       'summon'    => [ PRI_HIGH,   \&oneortwo,      ],
       'sconnect'  => [ PRI_HIGH,   \&oneandtwoopt,  ],

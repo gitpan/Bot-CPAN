@@ -1,5 +1,5 @@
-# $Revision: 1.5 $
-# $Id: Glue.pm,v 1.5 2003/03/12 23:39:08 afoxson Exp $
+# $Revision: 1.7 $
+# $Id: Glue.pm,v 1.7 2003/03/13 10:13:59 afoxson Exp $
 
 # Bot::CPAN::Glue - Deep magic for Bot::CPAN
 # Copyright (c) 2003 Adam J. Foxson. All rights reserved.
@@ -16,6 +16,7 @@ package Bot::CPAN::Glue;
 require 5.006;
 
 use strict;
+use Digest::MD5;
 use POE;
 use vars qw(@ISA @EXPORT $VERSION %commands);
 use Bot::BasicBot;
@@ -41,7 +42,7 @@ use Attribute::Handlers autotie => {
 	'__CALLER__::Args'    => __PACKAGE__,
 };
 
-($VERSION) = '$Revision: 1.5 $' =~ /\s+(\d+\.\d+)\s+/;
+($VERSION) = '$Revision: 1.7 $' =~ /\s+(\d+\.\d+)\s+/;
 @ISA       = qw(Bot::BasicBot);
 
 local $^W;
@@ -57,7 +58,7 @@ sub _command {
 		$self->_verify_usage($message, $command, $module_or_author);
 
 	$self->set('requests', $self->get('requests') + 1);
-	$message->{_botcpan_command} = $command;
+	$message->{data} = $command;
 	$self->log("DEBUG: _command: $command, $module_or_author\n") if DEBUG;
 	$self->_dispatch($message, $module_or_author);
 }
@@ -70,7 +71,7 @@ sub _commands {
 # execution. this serves to adapt the incompatible api's of B::B and POE
 sub _dispatch {
 	my ($self, $message, $module_or_author) = @_;
-	my $command = $message->{_botcpan_command};
+	my $command = $message->{data};
 
 	if (defined $commands{$command}[PERM] and
 		$commands{$command}[PERM] & FORK) {
@@ -82,7 +83,7 @@ sub _dispatch {
 				who => $message->{who},
 				channel => $message->{channel},
 				arguments => [$message, $module_or_author],
-				data => $message->{_botcpan_command},
+				data => $message->{data},
 		});
 	} 
 	else {
@@ -102,12 +103,15 @@ sub _fork_handler {
 	# sent internal CPANPLUS debugging info. this ensures that the user gets
 	# sent only what they ask for
 	my $passthrough_pattern = __PACKAGE__;
-	return unless $body =~ /^$passthrough_pattern:\s/;
+	unless ($body =~ /^$passthrough_pattern:\s/) {
+		$self->log("$body\n");
+		return;
+	}
 	$body =~ s/$passthrough_pattern: //;
 
 	my $args = $self->{forks}->{$wheel_id}->{args};
 
-	$self->log("DEBUG: _fork_handler: " . $args->{_botcpan_command} . "\n") if DEBUG;
+	$self->log("DEBUG: _fork_handler: " . $args->{data} . "\n") if DEBUG;
 
 	$args->{body} = $body;
 	$self->_return($args);
@@ -118,7 +122,7 @@ sub _fork_handler {
 # or low priority
 sub _get_type {
 	my ($self, $message) = @_;
-	my $command = $message->{_botcpan_command};
+	my $command = $message->{data};
 	my $type;
 
 	if ($message->{channel} eq "msg") {
@@ -231,8 +235,8 @@ sub _parse_command {
 sub _print {
 	my ($self, $message, $payload) = @_;
 
-	if (defined $commands{$message->{_botcpan_command}}[PERM] and
-		$commands{$message->{_botcpan_command}}[PERM] & FORK) {
+	if (defined $commands{$message->{data}}[PERM] and
+		$commands{$message->{data}}[PERM] & FORK) {
 			print __PACKAGE__ . ": " . $payload . "\n";
 	}
 	else {
@@ -272,7 +276,7 @@ sub _return
 
 	my $type = $self->_get_type($message);
 
-	$self->log("DEBUG: _return: $who: " . $message->{_botcpan_command} . "\n") if DEBUG;
+	$self->log("DEBUG: _return: $who: " . $message->{data} . "\n") if DEBUG;
 
 	$self->$type($who, $body);
 }
@@ -340,6 +344,43 @@ sub Public : ATTR(CODE) {
 	$commands{*{$_[1]}{NAME}}[PERM] |= PUBLIC_COMMAND;
 	$commands{*{$_[1]}{NAME}}[PERM] |= PUBLIC_NOTICE if $_[4] eq 'notice';
 	$commands{*{$_[1]}{NAME}}[PERM] |= PUBLIC_PRIVMSG if $_[4] eq 'privmsg';
+}
+
+# this is what you call one hell of a sanity check!
+
+BEGIN {
+	sub _death {
+		my $patchee = shift;
+		die "\n\033[1m" .
+		"=> You aren't using the correct $patchee. <=\033[m\007\n\n" .
+		"Possible reasons:\n\n" .
+		"1 - You did not patch $patchee.\n" .
+		"2 - You patched over an already patched $patchee.\n" .
+		"3 - You are using the wrong version of $patchee.\n\n" .
+		"Reinstall $patchee, and patch it from scratch.\n" .
+		"The patch files are location in etc/. See POD for details.\n\n";
+	}
+
+	sub _check_patch_bb {
+		open FILE, $INC{'Bot/BasicBot.pm'} or
+			die "Can't open Bot::Basic patchee: $!";
+		binmode FILE;
+		_death('Bot::BasicBot') unless
+			Digest::MD5->new->addfile(*FILE)->hexdigest eq
+				'69844ab3191618cd7a0e6c93bd88a543';
+	}
+
+	sub _check_patch_pci {
+		open FILE, $INC{'POE/Component/IRC.pm'} or
+			die "Can't open POE::Component::IRC patchee: $!";
+		binmode FILE;
+		_death('POE::Component::IRC') unless
+			Digest::MD5->new->addfile(*FILE)->hexdigest eq
+				'8267d47db2e11e764862c210b1a30487';
+	}
+
+	_check_patch_bb();
+	_check_patch_pci();
 }
 
 1;

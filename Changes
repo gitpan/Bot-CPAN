@@ -1,5 +1,22 @@
 Revision history for Perl extension Bot::CPAN.
 
+0.01_05  Thu Mar 13 05:35:41 2003
+         - new patches for both POE::Component::IRC, and Bot::BasicBot are
+           included. you'll need to reinstall both distributions from scratch,
+           and re-patch both with the new patches
+         - if the patches are not correctly installed the bot will refuse
+           to run
+         - fixed another issue with Bot::BasicBot, this time with addressing
+         - improvements to the POD
+         - author is now case insensitive for modules and distributions
+         - Bot::CPAN is now attributed in 'help'
+         - fixed issue where ignore_list wasn't being respected
+         - the logging format has been dramatically improved
+         - _reload_indices is now forked off so it doesn't block the bot
+         - added some real tests, but need much more
+         - special thanks to Spoon@#cpan@magnet for pointing out some of the
+           anomalies that are fixed in this version, and for beta testing
+
 0.01_04  Wed Mar 12 18:35:41 2003
          - bug fix for 'help'
          - all incoming commands are now case insensitive

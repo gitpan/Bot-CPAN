@@ -55,39 +55,75 @@ Fires up the bot.
 
 =item * B<author>
 
+retrieves the author of a module
+
 =item * B<botsnack>
+
+gives the bot a snack
 
 =item * B<description>
 
+retrieves the description of a module
+
 =item * B<details>
+
+retrieves full details of a module
 
 =item * B<distributions>
 
+retrieves all of the distributions by an author
+
 =item * B<help>
+
+provides instruction on how to use this bot
 
 =item * B<language>
 
+retrieves the language of a module
+
 =item * B<modules>
+
+retrieves the modules created by a given author
 
 =item * B<package>
 
+retrieves the package of a module
+
 =item * B<path>
+
+retrieves the full CPAN path of a module
 
 =item * B<recent>
 
+shows last ten distributions uploaded to the CPAN
+
 =item * B<stage>
+
+retrieves the stage of a module
 
 =item * B<status>
 
+retrieves the status of the bot
+
 =item * B<style>
+
+retrieves the style of a module
 
 =item * B<support>
 
+retrieves the support level of a module
+
 =item * B<tests>
+
+retrieves the test results of a module
 
 =item * B<url>
 
+retrieves the www path to a module
+
 =item * B<version>
+
+retrieves the latest version of a module
 
 =head1 ATTRIBUTES
 
@@ -140,6 +176,22 @@ back lots of data to users).
 The patches have been sent to the upstream authors. The patches can be found in
 etc/.
 
+Also, if you expect the bot to have very recent CPAN data, be sure that
+CPANPLUS is set to get indexes directly from ftp.funet.fi.
+
+Bot::BasicBot's alt_nicks doesn't do what you think. It's NOT for specifying
+alternate nicks to use for connecting to IRC if the one you chose is taken.
+It's used for specifying nicks that you'd like the bot to respond to via proxy.
+
+=head1 HOW TO WRITE A NEW COMMAND
+
+Simple really. Define a subroutine, in CPAN.pm, and add whatever attributes
+you'd like to it's signature (see above). You will be passed three arguments,
+the referrent object, the event hashref, and the command's actual argument.
+To get data back to the user, simply use $self->print(). It's first argument
+should be the event hashref and the other argument is whatever you want to
+return to the user.
+
 =head1 BUGS
 
 If you happen to find one please email me at afoxson@pobox.com. Thank you.
@@ -147,7 +199,8 @@ If you happen to find one please email me at afoxson@pobox.com. Thank you.
 =head1 TODO
 
   - Write actual tests.
-  - Add support for 'fetch', 'readme', and 'whois'.
+  - Add support for 'fetch', 'readme', 'bugs', 'lastupdate', and 'whois'.
+  - Prepare for non-developer release
 
 =head1 COPYRIGHT
 

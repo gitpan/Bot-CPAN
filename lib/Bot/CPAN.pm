@@ -1,5 +1,5 @@
-# $Revision: 1.13 $
-# $Id: CPAN.pm,v 1.13 2003/03/12 23:39:07 afoxson Exp $
+# $Revision: 1.15 $
+# $Id: CPAN.pm,v 1.15 2003/03/13 10:13:58 afoxson Exp $
 
 # Bot::CPAN - provides CPAN services via IRC
 # Copyright (c) 2003 Adam J. Foxson. All rights reserved.
@@ -25,7 +25,7 @@ use Bot::CPAN::Glue;
 use vars qw(@ISA $VERSION);
 
 @ISA = qw(Bot::CPAN::Glue);
-$VERSION = '0.01_04';
+$VERSION = '0.01_05';
 
 local $^W;
 
@@ -107,6 +107,8 @@ sub distributions :Private(notice) :Fork :LowPrio :Args(required)
 :Help('retrieves all of the distributions by an author') {
 	my ($self, $event, $author) = @_;
 
+	$author = uc $author;
+
 	if (length $author < 3) {
 		$self->_print($event, "Author ID '$author' is too small");
 		return;
@@ -150,6 +152,9 @@ sub help :Private(notice) :LowPrio :Args(optional)
 :Help('provides instruction on how to use this bot') {
 	my ($self, $event, $command) = @_;
 	my (@public_and_private, @public, @private);
+
+	$self->_print($event, $self->nick() . ' is brought to you by ' .
+		__PACKAGE__ . " version $VERSION");
 
 	if (not $command) {
 		for my $command (sort $self->_commands()) {
@@ -210,6 +215,8 @@ sub language :Private(notice) :Public(privmsg) :Args(required)
 sub modules :Private(notice) :Fork :LowPrio :Args(required)
 :Help('retrieves the modules created by a given author') {
 	my ($self, $event, $author) = @_;
+
+	$author = uc $author;
 
 	if (length $author < 3) {
 		$self->_print($event, "Author ID '$author' is too small");
@@ -314,11 +321,18 @@ sub recent :Private(notice) :Public(privmsg) :Args(refuse)
 
 sub _reload_indices {
 	my $self = $_[OBJECT];
-	my $cp = $self->get('cp');
 
 	$self->log("Reloading indices\n");
+	$self->forkit({
+		run => sub {
+			my $self = shift;
+			my $cp = $self->get('cp');
 
-	$cp->reload_indices(update_source => 1);
+			$cp->reload_indices(update_source => 1);
+		},
+		handler => '_fork_handler',
+		body => $self,
+	});
 	$poe_kernel->delay_add('_reload_indices',
 		$self->get('reload_indices_interval'));
 }
