@@ -1,5 +1,5 @@
-# $Revision: 1.4 $
-# $Id: Glue.pm,v 1.4 2003/03/12 07:33:18 afoxson Exp $
+# $Revision: 1.5 $
+# $Id: Glue.pm,v 1.5 2003/03/12 23:39:08 afoxson Exp $
 
 # Bot::CPAN::Glue - Deep magic for Bot::CPAN
 # Copyright (c) 2003 Adam J. Foxson. All rights reserved.
@@ -41,7 +41,7 @@ use Attribute::Handlers autotie => {
 	'__CALLER__::Args'    => __PACKAGE__,
 };
 
-($VERSION) = '$Revision: 1.4 $' =~ /\s+(\d+\.\d+)\s+/;
+($VERSION) = '$Revision: 1.5 $' =~ /\s+(\d+\.\d+)\s+/;
 @ISA       = qw(Bot::BasicBot);
 
 local $^W;
@@ -221,6 +221,8 @@ sub _parse_command {
 	}
 
 	my ($command, $module_or_author) = ($1, $2);
+
+	$command = lc $command;
 
 	return ($command, $module_or_author);
 }

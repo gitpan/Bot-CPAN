@@ -1,5 +1,5 @@
-# $Revision: 1.12 $
-# $Id: CPAN.pm,v 1.12 2003/03/12 07:33:17 afoxson Exp $
+# $Revision: 1.13 $
+# $Id: CPAN.pm,v 1.13 2003/03/12 23:39:07 afoxson Exp $
 
 # Bot::CPAN - provides CPAN services via IRC
 # Copyright (c) 2003 Adam J. Foxson. All rights reserved.
@@ -25,7 +25,7 @@ use Bot::CPAN::Glue;
 use vars qw(@ISA $VERSION);
 
 @ISA = qw(Bot::CPAN::Glue);
-$VERSION = '0.01_03';
+$VERSION = '0.01_04';
 
 local $^W;
 

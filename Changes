@@ -1,5 +1,9 @@
 Revision history for Perl extension Bot::CPAN.
 
+0.01_04  Wed Mar 12 18:35:41 2003
+         - bug fix for 'help'
+         - all incoming commands are now case insensitive
+
 0.01_03  Wed Mar 12 02:51:23 2003
          - generated new Bot::BasicBot patch; fixes more issues
          - pervase improvements to the internal architecture;
