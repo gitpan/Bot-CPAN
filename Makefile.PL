@@ -1,5 +1,5 @@
-# $Id: Makefile.PL,v 1.1.1.1 2003/03/09 21:52:29 afoxson Exp $
-# $Revision: 1.1.1.1 $
+# $Id: Makefile.PL,v 1.2 2003/03/11 11:17:06 afoxson Exp $
+# $Revision: 1.2 $
 
 use ExtUtils::MakeMaker;
 
@@ -7,6 +7,7 @@ WriteMakefile(
 	'NAME' => 'Bot::CPAN',
 	'PM' => {
 		'lib/Bot/CPAN.pm' => '$(INST_LIBDIR)/CPAN.pm',
+		'lib/Bot/CPAN/Glue.pm' => '$(INST_LIBDIR)/CPAN/Glue.pm',
 	},
 
 	'PREREQ_PM' => {
@@ -14,6 +15,7 @@ WriteMakefile(
 		'Net::NNTP' => '2.21',
 		'Mail::Internet' => '1.58',
 		'CPANPLUS' => '0.042',
+		'Attribute::Handlers' => '0.77',
 	},
 	'VERSION_FROM' => 'lib/Bot/CPAN.pm',
 	'MAN3PODS' => {

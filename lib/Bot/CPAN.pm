@@ -1,5 +1,5 @@
-# $Revision: 1.7 $
-# $Id: CPAN.pm,v 1.7 2003/03/10 06:50:10 afoxson Exp $
+# $Revision: 1.12 $
+# $Id: CPAN.pm,v 1.12 2003/03/12 07:33:17 afoxson Exp $
 
 # Bot::CPAN - provides CPAN services via IRC
 # Copyright (c) 2003 Adam J. Foxson. All rights reserved.
@@ -14,179 +14,234 @@
 
 package Bot::CPAN;
 
-use strict;
-use POE;
-use Bot::BasicBot;
-use CPANPLUS::Backend;
-use Net::NNTP;
-use Mail::Internet;
-use vars qw(@ISA $VERSION $SERVER $GROUP $HIGHEST_ARTICLE_NUM);
-use constant NOT_A_COMMAND => (0);
-use constant PUBLIC_COMMAND => (1<<0);
-use constant PRIVATE_COMMAND => (1<<1);
-use constant FORK => (1<<2);
+require 5.006;
 
-@ISA = qw(Bot::BasicBot);
-$VERSION = '0.01_02';
-$SERVER = 'nntp.perl.org'; # may end up storing this elsewhere
-$GROUP = 'perl.cpan.testers'; # may end up storing this elsewhere
+use strict;
+use Net::NNTP; 
+use Mail::Internet;
+use POE;
+use CPANPLUS::Backend;
+use Bot::CPAN::Glue;
+use vars qw(@ISA $VERSION);
+
+@ISA = qw(Bot::CPAN::Glue);
+$VERSION = '0.01_03';
 
 local $^W;
 
-# may end up storing this elsewhere
-my %commands = (
-	'author' => PRIVATE_COMMAND|PUBLIC_COMMAND,
-	'description' => PRIVATE_COMMAND|PUBLIC_COMMAND,
-	'stage' => PRIVATE_COMMAND|PUBLIC_COMMAND,
-	'style' => PRIVATE_COMMAND|PUBLIC_COMMAND,
-	'language' => PRIVATE_COMMAND|PUBLIC_COMMAND,
-	'package' => PRIVATE_COMMAND|PUBLIC_COMMAND,
-	'support' => PRIVATE_COMMAND|PUBLIC_COMMAND,
-	'version' => PRIVATE_COMMAND|PUBLIC_COMMAND,
-	'path' => PRIVATE_COMMAND|PUBLIC_COMMAND,
-	'recent' => PRIVATE_COMMAND|PUBLIC_COMMAND,
-	'fetch' => PRIVATE_COMMAND|PUBLIC_COMMAND,
-	'readme' => PRIVATE_COMMAND|PUBLIC_COMMAND,
-	'status' => PRIVATE_COMMAND|PUBLIC_COMMAND,
-	'url' => PRIVATE_COMMAND|PUBLIC_COMMAND,
-	'tests' => PRIVATE_COMMAND|FORK,
-	'modules' => PRIVATE_COMMAND|FORK,
-	'distributions' => PRIVATE_COMMAND|FORK,
-	'details' => PRIVATE_COMMAND|FORK,
-	'botsnack' => PUBLIC_COMMAND,
-);
+sub _add_to_recent {
+	my ($self, $dist) = @_;
+	my @recent = @{$self->get('recent')};
 
-sub command {
-	my ($self, $body, $who, $type) = @_;
-	my $cmds = join '|', keys %commands;
-	my @invalid = ('huh?', 'hm?', 'excuse me?', 'pardon me?');
-	my $invalid = $invalid[int(rand(scalar @invalid))];
+	shift @recent if scalar @recent == 10;
+	push @recent, $dist;
 
-	return $invalid unless $body =~ m/
-		^
-		(
-			$cmds
-		)
-		(?:
-			(?:\s+(?:for|from|of|on|to))?
-			\s+
-			([^\s\?]+)
-		)?
-		\s*
-		\??
-		$
-	/imx;
-
-	my ($command, $module_or_author) = ($1, $2);
-
-	unless ($type & $commands{$command}) {
-		if ($commands{$command} & PUBLIC_COMMAND) {
-			return "'$command' is a public only command";
-		}
-		elsif ($commands{$command} & PRIVATE_COMMAND) {
-			return "'$command' is a private only command";
-		}
-	}
-
-	$self->set('requests', $self->get('requests') + 1);
-
-	return $self->$command($module_or_author, $who) if
-		$commands{$command} & FORK;
-	return $self->$command($module_or_author);
+	$self->set('recent', \@recent);
 }
 
-sub said {
-	my ($self, $mess) = @_;
-	my $body = $mess->{body};
-	my $who = $mess->{who};
-	my $type = $mess->{channel} eq 'msg' ? PRIVATE_COMMAND : PUBLIC_COMMAND;
-
-	# say nothing if we are not specifically addressed
-	return undef unless $mess->{address}; 
-
-	my $result = $self->command($body, $who, $type);
-
-	$mess->{body} = $result;
-	$self->say(%$mess);
-
-	return;
+sub author :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the author of a module') {
+	my ($self, $event, $module) = @_;
+	$self->_print($event, $self->_get_details($module, 'Author'));
 }
 
-sub help {
-	my $self = shift;
-	my (@public_and_private, @public, @private);
-	my $buffer;
-
-	for my $command (sort keys %commands) {
-		if ($commands{$command} & PRIVATE_COMMAND &&
-			$commands{$command} & PUBLIC_COMMAND) {
-				push @public_and_private, $command;
-		}
-		elsif ($commands{$command} & PRIVATE_COMMAND) {
-			push @private, $command;
-		}
-		elsif ($commands{$command} & PUBLIC_COMMAND) {
-			push @public, $command;
-		}
-	}
-
-	$buffer .= "Public and Private commands: ".
-		(join ', ', @public_and_private) . ' -- ' if
-			scalar @public_and_private > 0;
-	$buffer .= "Public only commands: ".
-		(join ', ', @public) . ' -- ' if
-			scalar @public > 0;
-	$buffer .= "Private only commands: ".
-		join ', ', @private if
-			scalar @private > 0;
-
-	return $buffer;
+sub botsnack :Public(privmsg) :Args(refuse)
+:Help('gives the bot a snack') {
+	my ($self, $event) = @_;
+	$self->_print($event, "*8-)");
 }
 
+# this is called the moment we successfully connect to a server
 sub connected {
 	my $self = shift;
 	my $cp = CPANPLUS::Backend->new();
 
 	$self->set('cp', $cp);
 	$self->set('requests', 0);
+	$self->set('recent', []);
 
-	my $c = Net::NNTP->new($SERVER) or die "Cannot open NNTP: $!";
-	my ($articles,$low,$high) = $c->group($GROUP) or die "Cannot go to $GROUP: $!";
-	$HIGHEST_ARTICLE_NUM = $articles;
+	my $c = Net::NNTP->new($self->get('news_server')) or
+		die "Cannot open NNTP server: $!";
+	my ($articles,$low,$high) = $c->group($self->get('group')) or
+		die "Cannot go to group: $!";
+	$self->set('articles', $articles);
 
 	$poe_kernel->state('_reload_indices', $self);
 	$poe_kernel->state('_inform_channel_of_new_uploads', $self);
 	$poe_kernel->delay_add('_reload_indices', 0);
-	$poe_kernel->delay_add('_inform_channel_of_new_uploads', 60);
+	$poe_kernel->delay_add('_inform_channel_of_new_uploads',
+		$self->get('inform_channel_of_new_uploads'));
 }
 
-sub _reload_indices {
-	my $self = $_[OBJECT];
+sub description :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the description of a module') {
+	my ($self, $event, $module) = @_;
+	$self->_print($event, $self->_get_details($module, 'Description'));
+}
+
+sub details :Private(notice) :Fork :LowPrio :Args(required)
+:Help('retrieves full details of a module') {
+	my ($self, $event, $module) = @_;
 	my $cp = $self->get('cp');
+	my $details = $cp->details(modules => [$module]);
 
-	$self->log("Reloading indices\n");
+	if (not defined $details->rv) {
+		$self->_print($event, "No such module: $module");
+	}
+	else {
+		for my $bit
+		(   
+			'Author', 'Description', 'Development Stage',
+			'Interface Style', 'Language Used', 'Package',
+			'Support Level', 'Version on CPAN',
+		)
+		{   
+			next if $details->rv->{$module}->{$bit} =~
+				/^Unknown|None given$/;
+			$self->_print($event, "$bit: " . $details->rv->{$module}->{$bit});
+		}
+	}
+}
 
-	$cp->reload_indices(update_source => 1);
-	$poe_kernel->delay_add('_reload_indices', 300);
+sub distributions :Private(notice) :Fork :LowPrio :Args(required)
+:Help('retrieves all of the distributions by an author') {
+	my ($self, $event, $author) = @_;
+
+	if (length $author < 3) {
+		$self->_print($event, "Author ID '$author' is too small");
+		return;
+	}
+
+	my $cp = $self->get('cp');
+	my $auth_search = $cp->search(type => 'author', list => [$author],
+		authors_only => 1);
+
+	if (not defined $auth_search) {
+		$self->_print($event, "No such author: $author");
+		return;
+	}
+
+	my $distributions = $cp->distributions(authors => [$author]);
+
+	if (not $distributions) {
+		$self->_print($event, "Author ID '$author' has no distributions");
+		return;
+	}
+
+	for my $rpt (keys %{$distributions->rv->{$author}})
+	{
+		$rpt =~ s/\.tar\.gz$//;
+		$rpt =~ s/\.tgz$//;
+		$rpt =~ s/\.zip$//;
+		$self->_print($event, "$rpt");
+	}
+}
+
+sub _get_details {
+	my ($self, $module, $type) = @_;
+	my $cp = $self->get('cp');
+	my $details = $cp->details(modules => [$module]);
+
+	return "No such module: $module" unless $details->ok;
+	return $details->rv->{$module}->{$type};
+}
+
+sub help :Private(notice) :LowPrio :Args(optional)
+:Help('provides instruction on how to use this bot') {
+	my ($self, $event, $command) = @_;
+	my (@public_and_private, @public, @private);
+
+	if (not $command) {
+		for my $command (sort $self->_commands()) {
+			if ($self->_private_command($command) &&
+				$self->_public_command($command)) {
+					push @public_and_private, $command;
+			}
+			elsif ($self->_private_command($command)) {
+				push @private, $command;
+			}
+			elsif ($self->_public_command($command)) {
+				push @public, $command;
+			}
+		}
+
+		$self->_print($event, "Public and Private commands: ".
+			(join ', ', @public_and_private)) if scalar @public_and_private > 0;
+		$self->_print($event, "Public only commands: ".
+			(join ', ', @public)) if scalar @public > 0;
+		$self->_print($event, "Private only commands: ".
+			(join ', ', @private)) if scalar @private > 0;
+	}
+	else {
+		$self->_print($event, $self->_help($command));
+	}
 }
 
 sub _inform_channel_of_new_uploads {
 	my $self = $_[OBJECT];
 	$self->log("Checking for new CPAN uploads\n");
 
-	my $c = Net::NNTP->new($SERVER) or die "Cannot open NNTP: $!";
-	my ($articles,$low,$high) = $c->group($GROUP) or die "Cannot go to $GROUP: $!";
-	my $ARTICLES_AT_ITER = $articles;
+	my $c = Net::NNTP->new($self->get('news_server')) or
+		die "Cannot open NNTP server: $!";
+	my ($articles,$low,$high) = $c->group($self->get('group')) or
+		die "Cannot go to group: $!";
+	my $iteration_articles = $articles;
 
-	for (;$ARTICLES_AT_ITER > $HIGHEST_ARTICLE_NUM && $HIGHEST_ARTICLE_NUM <= $ARTICLES_AT_ITER; $HIGHEST_ARTICLE_NUM++) {
-		my $art = $c->article($HIGHEST_ARTICLE_NUM) or next;
-		my $mail = Mail::Internet->new($art);
+	for (;$iteration_articles > $self->get('articles') &&
+			$self->get('articles') <= $iteration_articles;
+			$self->set('articles', $self->get('articles') + 1)) {
+				my $art = $c->article($self->get('articles')) or next;
+				my $mail = Mail::Internet->new($art);
 
-		$mail->tidy_body;
-		$self->_parse_article($mail);
+				$mail->tidy_body;
+				$self->_parse_article($mail);
 	}
 
-	$poe_kernel->delay_add('_inform_channel_of_new_uploads', 60);
+	$poe_kernel->delay_add('_inform_channel_of_new_uploads',
+		$self->get('inform_channel_of_new_uploads'));
+}
+
+sub language :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the language of a module') {
+	my ($self, $event, $module) = @_;
+	$self->_print($event, $self->_get_details($module, 'Language Used'));
+}
+
+sub modules :Private(notice) :Fork :LowPrio :Args(required)
+:Help('retrieves the modules created by a given author') {
+	my ($self, $event, $author) = @_;
+
+	if (length $author < 3) {
+		$self->_print($event, "Author ID '$author' is too small");
+		return;
+	}
+
+	my $cp = $self->get('cp');
+	my $auth_search = $cp->search(type => 'author', list => [$author],
+		authors_only => 1);
+
+	if (not defined $auth_search) {
+		$self->_print($event, "No such author: $author");
+		return;
+	}
+
+	my $modules = $cp->modules(authors => [$author]);
+
+	if (not $modules->rv) {
+		$self->_print($event, "Author ID '$author' has no modules");
+		return;
+	}
+
+	for my $rpt (keys %{$modules->rv->{$author}})
+	{   
+		$self->_print($event, "$rpt");
+	}
+}
+
+sub package :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the package of a module') {
+	my ($self, $event, $module) = @_;
+	$self->_print($event, $self->_get_details($module, 'Package'));
 }
 
 sub _parse_article {
@@ -222,287 +277,126 @@ sub _parse_article {
 	($mail->{_cpan_short}) = $mail->{_cpan_file} =~
 		/^.+\/(.+)(?:\.tar\.gz$|\.tgz$|\.zip$)/;
 
+	$self->_add_to_recent($mail->{_cpan_short});
+
 	for my $channel ($self->channels()) {
 		$self->emote({channel => $channel, body =>
 			"upload: $mail->{_cpan_short} by $mail->{_cpan_entered_by}"});
 	}
 }
 
-sub _get_details {
-	my ($self, $module, $type) = @_;
-	my $cp = $self->get('cp');
-	my $details = $cp->details(modules => [$module]);
-
-	return "No such module: $module" unless $details->ok;
-	return $details->rv->{$module}->{$type};
-}
-
-sub author {
-	my ($self, $module) = @_;
-	return $self->_get_details($module, 'Author');
-}
-
-sub description {
-	my ($self, $module) = @_;
-	return $self->_get_details($module, 'Description');
-}
-
-sub stage {
-	my ($self, $module) = @_;
-	return $self->_get_details($module, 'Development Stage');
-}
-
-sub style {
-	my ($self, $module) = @_;
-	return $self->_get_details($module, 'Interface Style');
-}
-
-sub language {
-	my ($self, $module) = @_;
-	return $self->_get_details($module, 'Language Used');
-}
-
-sub packapge {
-	my ($self, $module) = @_;
-	return $self->_get_details($module, 'Package');
-}
-
-sub support {
-	my ($self, $module) = @_;
-	return $self->_get_details($module, 'Support Level');
-}
-
-sub version {
-	my ($self, $module) = @_;
-	return $self->_get_details($module, 'Version on CPAN');
-}
-
-sub path {
-	my ($self, $module) = @_;
+sub path :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the full CPAN path of a module') {
+	my ($self, $event, $module) = @_;
 	my $cp = $self->get('cp');
 	my $path = $cp->pathname(to => $module);
 
-	return "No such module: $module" unless $path;
-	return "\$CPAN/authors/id$path";
+	unless ($path) {
+		$self->_print($event, "No such module: $module");
+		return;
+	}
+
+	$self->_print($event, "\$CPAN/authors/id$path");
 }
 
-sub _fork {
-	my ($self, $code, $module, $who) = @_;
+sub recent :Private(notice) :Public(privmsg) :Args(refuse)
+:Help('shows last ten distributions uploaded to the CPAN') {
+	my ($self, $event) = @_;
+	my @recent = @{$self->get('recent')};
 
-	my $caller = (caller(1))[3];
-	$caller =~ s/.+:://;
-	die "'$caller' is not defined as a forkable method\n" unless
-		$commands{$caller} & FORK;
+	if (scalar @recent < 1) {
+		$self->_print($event, "I just got here. Give me a bit to get settled. :-)");
+		return;
+	}
 
-	$self->forkit({
-		run => $code,
-		handler => '_fork_msg_handler',
-		body => $module,
-		who => $who,
-		channel => 'msg',
-		arguments => [$self],
-	});
+	$self->_print($event, join ', ', (reverse @recent));
 }
 
-sub _fork_msg_handler {
-	my ($self, $body, $wheel_id) = @_[0, ARG0, ARG1];
-	chomp($body);
+sub _reload_indices {
+	my $self = $_[OBJECT];
+	my $cp = $self->get('cp');
 
-	# This is not particularly endearing, but it has to be done *sigh*
-	my $passthrough_pattern = __PACKAGE__;
-	return unless $body =~ /^$passthrough_pattern:\s/;
-	$body =~ s/$passthrough_pattern: //;
+	$self->log("Reloading indices\n");
 
-	my $args = $self->{forks}->{$wheel_id}->{args};
-	my $who = $args->{who};
-	$self->privmsglow($who, $body);
+	$cp->reload_indices(update_source => 1);
+	$poe_kernel->delay_add('_reload_indices',
+		$self->get('reload_indices_interval'));
 }
 
-# Why do we do this? Essentially, we are forced to, due to B::B and POE
-# semantics. If we don't do this (in conjuction with the passthrough
-# related chunk in _fork_msg_handler) the bot will /msg's people with
-# internal CPANPLUS debugging info :-(
-sub _passthrough {
-	shift;
-	my $payload = shift;
-	print __PACKAGE__ . ": " . $payload . "\n";
+sub stage :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the stage of a module') {
+	my ($self, $event, $module) = @_;
+	$self->_print($event, $self->_get_details($module, 'Development Stage'));
 }
 
-sub tests {
-	my ($self, $module, $who) = @_;
-
-	$self->_fork(
-		sub {
-			my $module = shift;
-			my $self = shift;
-			my $cp = $self->get('cp');
-			my $report = $cp->reports(modules => [$module]);
-
-			if (not defined $report->rv) {
-				$self->_passthrough("No such module: $module");
-			}
-			elsif (not $report->rv->{$module}) {
-				$self->_passthrough("No test results for: $module");
-			}
-			else {
-				$self->_passthrough("--- BEGIN ---");
-				for my $rpt (@{$report->rv->{$module}}) {
-					$self->_passthrough("$rpt->{grade} $rpt->{platform}");
-				}
-				$self->_passthrough("--- END ---");
-			}
-		},
-		$module,
-		$who,
-	);
-}
-
-sub details {
-	my ($self, $module, $who) = @_;
-
-	$self->_fork(
-		sub {
-			my $module = shift;
-			my $self = shift;
-			my $cp = $self->get('cp');
-			my $details = $cp->details(modules => [$module]);
-
-			if (not defined $details->rv) {
-				$self->_passthrough("No such module: $module");
-			}
-			else {
-				for my $bit
-				(   
-					'Author', 'Description', 'Development Stage',
-					'Interface Style', 'Language Used', 'Package',
-					'Support Level', 'Version on CPAN',
-				)
-				{   
-					next if $details->rv->{$module}->{$bit} =~
-						/^Unknown|None given$/;
-					$self->_passthrough("$bit: " . $details->rv->{$module}->{$bit});
-				}
-			}
-		},
-		$module,
-		$who,
-	);
-}
-
-sub modules {
-	my ($self, $author, $who) = @_;
-
-	$self->_fork(
-		sub {
-			my $author = shift;
-			my $self = shift;
-
-			if (length $author < 3) {
-				$self->_passthrough("Author ID '$author' is too small");
-				return;
-			}
-
-			my $cp = $self->get('cp');
-			my $auth_search = $cp->search(type => 'author', list => [$author],
-				authors_only => 1);
-
-			if (not defined $auth_search) {
-				$self->_passthrough("No such author: $author");
-				return;
-			}
-
-			my $modules = $cp->modules(authors => [$author]);
-
-			if (not $modules->rv) {
-				$self->_passthrough("Author ID '$author' has no modules");
-				return;
-			}
-
-			for my $rpt (keys %{$modules->rv->{$author}})
-			{   
-				$self->_passthrough("$rpt");
-			}
-		},
-		$author,
-		$who,
-	);
-}
-
-sub distributions {
-	my ($self, $author, $who) = @_;
-
-	$self->_fork(
-		sub {
-			my $author = shift;
-			my $self = shift;
-
-			if (length $author < 3) {
-				$self->_passthrough("Author ID '$author' is too small");
-				return;
-			}
-
-			my $cp = $self->get('cp');
-			my $auth_search = $cp->search(type => 'author', list => [$author],
-				authors_only => 1);
-
-			if (not defined $auth_search) {
-				$self->_passthrough("No such author: $author");
-				return;
-			}
-
-			my $distributions = $cp->distributions(authors => [$author]);
-
-			if (not $distributions) {
-				$self->_passthrough("Author ID '$author' has no distributions");
-				return;
-			}
-
-			for my $rpt (keys %{$distributions->rv->{$author}})
-			{
-				$rpt =~ s/\.tar\.gz$//;
-				$rpt =~ s/\.tgz$//;
-				$rpt =~ s/\.zip$//;
-				$self->_passthrough("$rpt");
-			}
-		},
-		$author,
-		$who,
-	);
-
-}
-
-sub status {
-	my $self = shift;
+sub status :Private(notice) :Public(privmsg) :Args(refuse)
+:Help('retrieves the status of the bot') {
+	my ($self, $event) = @_;
 	my $requests = $self->get('requests');
 
-	return sprintf "%d request%s since I started up at %s",
-		$requests, $requests == 1 ? '' : 's', scalar localtime($^T);
+	$self->_print($event, sprintf "%d request%s since I started up at %s",
+		$requests, $requests == 1 ? '' : 's', scalar localtime($^T));
 }
 
-sub botsnack {
-	return "*8-)";
+sub style :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the style of a module') {
+	my ($self, $event, $module) = @_;
+	$self->_print($event, $self->_get_details($module, 'Interface Style'));
 }
 
-sub recent { "Not yet implemented" }
-sub fetch { "Not yet implemented" }
-sub readme { "Not yet implemented" }
+sub support :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the support level of a module') {
+	my ($self, $event, $module) = @_;
+	$self->_print($event, $self->_get_details($module, 'Support Level'));
+}
 
-sub url {
-	my ($self, $module) = @_;
+sub tests :Private(notice) :Fork :LowPrio :Args(required)
+:Help('retrieves the test results of a module') {
+	my ($self, $event, $module) = @_;
+	my $cp = $self->get('cp');
+	my $report = $cp->reports(modules => [$module]);
+
+	if (not defined $report->rv) {
+		$self->_print($event, "No such module: $module");
+	}
+	elsif (not $report->rv->{$module}) {
+		$self->_print($event, "No test results for: $module");
+	}
+	else {
+		for my $rpt (@{$report->rv->{$module}}) {
+			$self->_print($event, "$rpt->{grade} $rpt->{platform}");
+		}
+	}
+}
+
+sub url :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the www path to a module') {
+	my ($self, $event, $module) = @_;
 	my $cp = $self->get('cp');
 	my $url = $cp->module_tree->{$module};
 	my $buffer = 'http://search.cpan.org/author/';
 
-	return "No such module: $module" unless defined $url;
+	unless (defined $url) {
+		$self->_print($event, "No such module: $module");
+		return;
+	}
 
 	my $author  = $url->author();
 	my $package = $url->package();
 
-	return "Unable to get url for: $module" unless
-		$package =~ s/\.tgz$|\.tar\.gz$|\.zip$//;
+	unless ($package =~ s/\.tgz$|\.tar\.gz$|\.zip$//) {
+		$self->_print($event, "Unable to get url for: $module");
+		return;
+	}
 
 	$buffer .= $author . '/' . $package . '/';
-	return $buffer;
+	$self->_print($event, $buffer);
+}
+
+sub version :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the latest version of a module') {
+	my ($self, $event, $module) = @_;
+	$self->_print($event, $self->_get_details($module, 'Version on CPAN'));
 }
 
 1;

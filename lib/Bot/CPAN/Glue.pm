@@ -1,0 +1,343 @@
+# $Revision: 1.4 $
+# $Id: Glue.pm,v 1.4 2003/03/12 07:33:18 afoxson Exp $
+
+# Bot::CPAN::Glue - Deep magic for Bot::CPAN
+# Copyright (c) 2003 Adam J. Foxson. All rights reserved.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the same terms as Perl itself.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+package Bot::CPAN::Glue;
+
+require 5.006;
+
+use strict;
+use POE;
+use vars qw(@ISA @EXPORT $VERSION %commands);
+use Bot::BasicBot;
+use constant NOT_A_COMMAND   => 0;
+use constant PUBLIC_COMMAND  => 1<<0;
+use constant PRIVATE_COMMAND => 1<<1;
+use constant FORK            => 1<<2;
+use constant LOW_PRIO        => 1<<3;
+use constant PUBLIC_NOTICE   => 1<<4;
+use constant PUBLIC_PRIVMSG  => 1<<5;
+use constant PRIVATE_NOTICE  => 1<<6;
+use constant PRIVATE_PRIVMSG => 1<<7;
+use constant PERM            => 0;
+use constant HELP            => 1;
+use constant ARG             => 2;
+use constant DEBUG           => 0;
+use Attribute::Handlers autotie => {
+	'__CALLER__::Public'  => __PACKAGE__,
+	'__CALLER__::Private' => __PACKAGE__,
+	'__CALLER__::Fork'    => __PACKAGE__,
+	'__CALLER__::LowPrio' => __PACKAGE__,
+	'__CALLER__::Help'    => __PACKAGE__,
+	'__CALLER__::Args'    => __PACKAGE__,
+};
+
+($VERSION) = '$Revision: 1.4 $' =~ /\s+(\d+\.\d+)\s+/;
+@ISA       = qw(Bot::BasicBot);
+
+local $^W;
+
+# this is the command handler, here we are ultimately responsible for
+# accepting or rejecting a command
+sub _command {
+	my ($self, $message) = @_;
+
+	return unless
+		my ($command, $module_or_author) = $self->_parse_command($message);
+	return unless
+		$self->_verify_usage($message, $command, $module_or_author);
+
+	$self->set('requests', $self->get('requests') + 1);
+	$message->{_botcpan_command} = $command;
+	$self->log("DEBUG: _command: $command, $module_or_author\n") if DEBUG;
+	$self->_dispatch($message, $module_or_author);
+}
+
+sub _commands {
+	return keys %commands;
+}
+
+# here we determine how to dispatch a given command, and then dispatch it for
+# execution. this serves to adapt the incompatible api's of B::B and POE
+sub _dispatch {
+	my ($self, $message, $module_or_author) = @_;
+	my $command = $message->{_botcpan_command};
+
+	if (defined $commands{$command}[PERM] and
+		$commands{$command}[PERM] & FORK) {
+			$self->log("DEBUG: _dispatch: fork $command, $module_or_author\n") if DEBUG;
+			$self->forkit({
+				run => \&{"${\(ref($self))}::$command"},
+				handler => '_fork_handler',
+				body => $self,
+				who => $message->{who},
+				channel => $message->{channel},
+				arguments => [$message, $module_or_author],
+				data => $message->{_botcpan_command},
+		});
+	} 
+	else {
+		$self->log("DEBUG: _dispatch: non-fork $command, $module_or_author\n") if DEBUG;
+		$self->$command($message, $module_or_author);
+	}
+}
+
+# this gets indirectly called by _print from within any forked command to
+# prepare data to be sent back to the user
+sub _fork_handler {
+	my ($self, $body, $wheel_id) = @_[0, ARG0, ARG1];
+	chomp $body;
+
+	# this is not particularly endearing, but it has to be done *sigh*
+	# why? if we don't do this here than the requesting user will also be
+	# sent internal CPANPLUS debugging info. this ensures that the user gets
+	# sent only what they ask for
+	my $passthrough_pattern = __PACKAGE__;
+	return unless $body =~ /^$passthrough_pattern:\s/;
+	$body =~ s/$passthrough_pattern: //;
+
+	my $args = $self->{forks}->{$wheel_id}->{args};
+
+	$self->log("DEBUG: _fork_handler: " . $args->{_botcpan_command} . "\n") if DEBUG;
+
+	$args->{body} = $body;
+	$self->_return($args);
+}
+
+# we return the method by which data should be returned, either via a notice
+# or a privmsg. we also determine if the data should be sent back with normal
+# or low priority
+sub _get_type {
+	my ($self, $message) = @_;
+	my $command = $message->{_botcpan_command};
+	my $type;
+
+	if ($message->{channel} eq "msg") {
+		$type = 'notice'; # the default
+		$type = 'privmsg' if defined $commands{$command}[PERM] and
+			$commands{$command}[PERM] & PRIVATE_PRIVMSG;
+	}
+	else {
+		$type = 'privmsg'; # the default
+		$type = 'notice' if defined $commands{$command}[PERM] and
+			$commands{$command}[PERM] & PUBLIC_NOTICE;
+	}
+
+	$type .= 'low' if defined $commands{$command}[PERM] and
+		$commands{$command}[PERM] & LOW_PRIO;
+
+	$self->log("DEBUG: _get_type: $command: $type\n") if DEBUG;
+
+	return $type;
+}
+
+sub _help {
+	my $command = $_[1];
+
+	if (not exists $commands{$command}) {
+		return "No such command: $command\n";
+	}
+	elsif (not defined $commands{$command}[HELP]) {
+		return "No help is available for: $command\n";
+	}
+	else {
+		return $commands{$command}[HELP];
+	}
+}
+
+# ordinarily, we wouldn't need to define our own constructor, but since we
+# need to add our own options (news_server and group) to the options that
+# Bot::Basicbot provides we'll need to separate the options that B::B
+# expects from the options that B::C expects
+sub new {
+	my $self = shift;
+	my (@upstream_args, @my_args);
+
+	while (my ($key, $value) = splice @_, 0, 2) {
+		if ($key eq 'news_server' ||
+			$key eq 'group' ||
+			$key eq 'reload_indices_interval' ||
+			$key eq 'inform_channel_of_new_uploads') {
+				push @my_args, $key, $value;
+		}
+		else {
+			push @upstream_args, $key, $value;
+		}
+	}
+
+	my $upstream = $self->SUPER::new(@upstream_args);
+
+	while (my ($key, $value) = splice @my_args, 0, 2) {
+		$upstream->set($key, $value);
+	}
+
+	# set up some sane defaults
+	$upstream->set('news_server', 'nntp.perl.org') unless
+		$upstream->get('news_server');
+	$upstream->set('group', 'perl.cpan.testers') unless
+		$upstream->get('group');
+	$upstream->set('reload_indices_interval', 300) unless
+		$upstream->get('reload_indices_interval');
+	$upstream->set('inform_channel_of_new_uploads', 60) unless
+		$upstream->get('inform_channel_of_new_uploads');
+
+	return $upstream;
+}
+
+# make sure that we are given a valid command, and that it's well formed
+sub _parse_command {
+	my ($self, $message) = @_;
+	my $cmds = join '|', keys %commands;
+	my $body = $message->{body};
+
+	unless ($body =~ m/
+		^
+		(
+			$cmds
+		)
+		(?:
+			(?:\s+(?:for|from|of|on|to))?
+			\s+
+			([^\s\?]+)
+		)?
+		\s*
+		\??
+		$
+	/imx) {
+		my @invalid = ('huh?', 'hm?', 'excuse me?', 'pardon me?');
+		my $invalid = $invalid[int(rand(scalar @invalid))];
+		$message->{body} = $invalid;
+		$self->_return($message);
+		return;
+	}
+
+	my ($command, $module_or_author) = ($1, $2);
+
+	return ($command, $module_or_author);
+}
+
+# here we determine how specifically to return data to the user
+sub _print {
+	my ($self, $message, $payload) = @_;
+
+	if (defined $commands{$message->{_botcpan_command}}[PERM] and
+		$commands{$message->{_botcpan_command}}[PERM] & FORK) {
+			print __PACKAGE__ . ": " . $payload . "\n";
+	}
+	else {
+		$message->{body} = $payload;
+		$self->_return($message);
+	}
+}
+
+sub _private_command {
+	my $command = $_[1];
+	return unless defined $commands{$command}[PERM];
+	return $commands{$command}[PERM] & PRIVATE_COMMAND;
+}
+
+sub _public_command {
+	my $command = $_[1];
+	return unless defined $commands{$command}[PERM];
+	return $commands{$command}[PERM] & PUBLIC_COMMAND;
+}
+
+# returns data directly to the requesting user
+sub _return
+{
+	my ($self, $message) = @_;
+	my $body = $message->{body};
+
+	$body = "$message->{who}: $body" if
+		$message->{channel} ne "msg" and $message->{address};
+
+	my $who = ($message->{channel} eq "msg") ?
+		$message->{who} : $message->{channel};
+
+	unless ($who && $body) {
+		$self->log("target and body are required ($who/$body)\n");
+		return;
+	}
+
+	my $type = $self->_get_type($message);
+
+	$self->log("DEBUG: _return: $who: " . $message->{_botcpan_command} . "\n") if DEBUG;
+
+	$self->$type($who, $body);
+}
+
+# this is the entrance for all incoming communication events
+sub said {
+	my ($self, $message) = @_;
+
+	# say nothing if we are not specifically addressed
+	return undef unless $message->{address}; 
+
+	$self->_command($message);
+}
+
+# make sure the user is using a given command in an appropriate manner
+sub _verify_usage {
+	my ($self, $message, $command, $module_or_author) = @_;
+	my $type = $message->{channel} eq 'msg' ? PRIVATE_COMMAND : PUBLIC_COMMAND;
+
+	if (defined $commands{$command}[PERM]) {
+		unless ($type & $commands{$command}[PERM]) {
+			if ($commands{$command}[PERM] & PUBLIC_COMMAND) {
+				$message->{body} = "'$command' is a public only command";
+				$self->_return($message);
+				return;
+			}
+			elsif ($commands{$command}[PERM] & PRIVATE_COMMAND) {
+				$message->{body} = "'$command' is a private only command";
+				$self->_return($message);
+				return;
+			}
+		}
+	}
+
+	if (defined $commands{$command}[ARG]) { 
+		if ($commands{$command}[ARG] eq 'required' && not $module_or_author) {
+			$message->{body} = "'$command' requires an argument";
+			$self->_return($message);
+			return;
+		}
+		elsif ($commands{$command}[ARG] eq 'refuse' && $module_or_author) {
+			$message->{body} = "'$command' accepts no argument";
+			$self->_return($message);
+			return;
+		}
+	}
+
+	return 1;
+}
+
+# and here are the attribute handlers
+
+sub Fork : ATTR(CODE)    { $commands{*{$_[1]}{NAME}}[PERM] |= FORK }
+sub Help : ATTR(CODE)    { $commands{*{$_[1]}{NAME}}[HELP] = $_[4] }
+sub LowPrio : ATTR(CODE) { $commands{*{$_[1]}{NAME}}[PERM] |= LOW_PRIO }
+sub Args : ATTR(CODE)    { $commands{*{$_[1]}{NAME}}[ARG] = $_[4] }
+
+sub Private : ATTR(CODE) {
+	$commands{*{$_[1]}{NAME}}[PERM] |= PRIVATE_COMMAND;
+	$commands{*{$_[1]}{NAME}}[PERM] |= PRIVATE_NOTICE if $_[4] eq 'notice';
+	$commands{*{$_[1]}{NAME}}[PERM] |= PRIVATE_PRIVMSG if $_[4] eq 'privmsg';
+}
+
+sub Public : ATTR(CODE) {
+	$commands{*{$_[1]}{NAME}}[PERM] |= PUBLIC_COMMAND;
+	$commands{*{$_[1]}{NAME}}[PERM] |= PUBLIC_NOTICE if $_[4] eq 'notice';
+	$commands{*{$_[1]}{NAME}}[PERM] |= PUBLIC_PRIVMSG if $_[4] eq 'privmsg';
+}
+
+1;

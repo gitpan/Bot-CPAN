@@ -8,4 +8,5 @@ etc/cpanbot.sh
 etc/poecomponentirc.patch
 lib/Bot/CPAN.pm
 lib/Bot/CPAN.pod
+lib/Bot/CPAN/Glue.pm
 t/bot.t

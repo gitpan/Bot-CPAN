@@ -13,71 +13,136 @@ SYNOPSIS
           username => 'cpantest',
           name => 'cpantest',
           ignore_list => [qw(purl)],
+          news_server => 'nntp.perl.org',
+          group => 'perl.cpan.testers',
+          reload_indices_interval => 300,
+          inform_channel_of_new_uploads => 60,
       );
       $bot->run();
 
 DESCRIPTION
-    This is the initial developer release of Bot::CPAN. You should not
-    expect that the API will remain stable, as this is currently a work in
-    progress.
+    This is a developer release of Bot::CPAN. You should not expect that the
+    API will remain stable, as this is currently a work in progress.
 
-    Bot::CPAN allows individuals on IRC to query the CPAN in a great number
-    of different ways. Bot::CPAN will also automatically inform the channel
-    of new uploads to the CPAN.
+    Bot::CPAN is a POE based distribution that allows individuals on IRC to
+    query the CPAN in a great number of different ways. Bot::CPAN will also
+    automatically inform the channel of new uploads to the CPAN.
 
 METHODS
     * new
         This constructor returns a Bot::CPAN object, and is inherited from
-        Bot::BasicBot. It will optionally accept named parameters for:
-        channels, server, port, nick, alt_nicks, username, name,
-        ignore_list, store, and log.
+        Bot::BasicBot. It will accept named parameters for: channels,
+        server, port, nick, alt_nicks, username, name, ignore_list, store,
+        and log. Bot::CPAN extends the Bot::BasicBot constructor to accept
+        the following named parameters: news_server, group,
+        reload_indices_interval, and inform_channel_of_new_uploads.
 
     * run
-        Fires the bot up.
+        Fires up the bot.
+
+COMMANDS
+        * author
+        * botsnack
+        * description
+        * details
+        * distributions
+        * help
+        * language
+        * modules
+        * package
+        * path
+        * recent
+        * stage
+        * status
+        * style
+        * support
+        * tests
+        * url
+        * version
+
+ATTRIBUTES
+        * :Private
+            Indicates that this command can be executed via a /msg. This
+            attribute takes an argument of either 'notice', or 'privmsg',
+            indicating that manner in which the data should be returned to
+            the user.
+
+        * :Public
+            Indicates that this command can be executed publically from
+            within a channel. This attribute takes an argument of either
+            'notice', or 'privmsg', indicating that manner in which the data
+            should be returned to the user.
+
+        * :Fork
+            Indicates that this command should be forked off. This should be
+            used only for commands that take a long time to execute (like
+            'tests'). Essentially, forking off a long running command will
+            prevent the execution from blocking the bot.
+
+        * :LowPrio
+            Indicates that this command's data should be returned to the
+            user with a low priority. This should be used only for commands
+            that return a lot of discrete chunks of data back to the user
+            (like 'tests'). This will prevent the returning of a lot of data
+            from blocking the bot.
+
+        * :Help
+            Defines the help message for this command, which will be
+            available via: /msg bot help <command>.
+
+        * :Args
+            Indicates the nature of the arguments sent to this command. This
+            attribute takes an argument of either 'required', 'optional', or
+            'refuse'. The user will then get an error message if they
+            attempt to use a command in a manner inconsistent with its
+            intended use.
 
 CAVEATS
-        At the moment you'll need to patch BasicBot.pm if you expect
-        Bot::CPAN to operate normally. The patch simply corrects a minor
-        error in BasicBot.pm.
+            At the moment you'll need to patch BasicBot.pm if you expect
+            Bot::CPAN to operate normally. The patch corrects a few minor
+            errors in BasicBot.pm.
 
-        Additionally, you'll also need to patch POE::Component::IRC in order
-        to get the prioritized messaging (which is needed to prevent
-        blocking during sending back lots of data to users).
+            Additionally, you'll also need to patch POE::Component::IRC in
+            order to get the prioritized messaging (which is required to
+            prevent blocking during sending back lots of data to users).
 
-        The patches have been sent to the upstream authors. The patches can
-        be found in etc/.
+            The patches have been sent to the upstream authors. The patches
+            can be found in etc/.
 
 BUGS
-        If you happen to find one please email me at afoxson@pobox.com.
-        Thank you.
+            If you happen to find one please email me at afoxson@pobox.com.
+            Thank you.
 
 TODO
-          - write actual tests
-          - add support for recent, fetch and readme
-          - improve help system support
-          - perhaps use notices instead of msgs when returning data
+              - Write actual tests.
+              - Add support for 'fetch', 'readme', and 'whois'.
 
 COPYRIGHT
-          Copyright (c) 2003 Adam J. Foxson. All rights reserved.
-          Copyright (c) 2003 Casey West. All rights reserved.
+              Copyright (c) 2003 Adam J. Foxson. All rights reserved.
+              Copyright (c) 2003 Casey West. All rights reserved.
 
 LICENSE
-        This program is free software; you may redistribute it and/or modify
-        it under the same terms as Perl itself.
+            This program is free software; you may redistribute it and/or
+            modify it under the same terms as Perl itself.
 
 SEE ALSO
-        * perl
-        * CPANPLUS
-        * POE
-        * POE::Component::IRC
-        * Bot::BasicBot
-        * Net::NNTP
-        * Mail::Internet
+            * perl
+            * CPANPLUS
+            * POE
+            * POE::Component::IRC
+            * Bot::BasicBot
+            * Net::NNTP
+            * Mail::Internet
+            * Attribute::Handlers
 
 AUTHOR
-        Adam J. Foxson <afoxson@pobox.com>, with patches from Casey West
-        <cwest@cpan.org> to support the latest POE versions, and a patch
-        from Randal Schwartz <merlyn@stonehenge.com> to support NNTP
-        retrieval of CPAN uploads (as opposed to the old way of doing it via
-        mailbox polling).
+            Adam J. Foxson <afoxson@pobox.com>, with patches from Casey West
+            <cwest@cpan.org> to support the latest POE versions, Randal
+            Schwartz <merlyn@stonehenge.com> to support NNTP retrieval of
+            CPAN uploads (as opposed to the old way of doing it via mailbox
+            polling), and Rocco Caputo <troc+cpan@pobox.com> that solved
+            early-on blocking issues.
+
+            Many thanks to gilc@#perl@magnet for spending time on
+            #cpan@magnet beta testing.
 

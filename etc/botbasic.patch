@@ -1,11 +1,72 @@
---- BasicBot.pm	Sun Jan 26 13:54:55 2003
-+++ /Library/Perl/Bot/BasicBot.pm	Sun Mar  9 17:39:43 2003
-@@ -849,7 +849,7 @@
- 
-     foreach $nick ($this->alt_nicks)
-     {
--      last if $this->{address};
-+      last if $mess->{address};
- 
-       ($mess->{address}) = $mess->{body} =~ s/^(\Q$nick\E\s*[:,-])//;
-     }
+*** BasicBot.pm	Sun Jan 26 13:54:55 2003
+--- /Library/Perl/Bot/BasicBot.pm	Wed Mar 12 02:13:12 2003
+***************
+*** 292,298 ****
+                                    args    => {
+                                                channel => $args->{channel},
+                                                who     => $args->{who},
+!                                               address => $args->{address}
+                                               }
+                                   };
+    return undef;
+--- 292,299 ----
+                                    args    => {
+                                                channel => $args->{channel},
+                                                who     => $args->{who},
+!                                               address => $args->{address},
+!                                               _botcpan_command => $args->{data},
+                                               }
+                                   };
+    return undef;
+***************
+*** 849,855 ****
+  
+      foreach $nick ($this->alt_nicks)
+      {
+!       last if $this->{address};
+  
+        ($mess->{address}) = $mess->{body} =~ s/^(\Q$nick\E\s*[:,-])//;
+      }
+--- 850,856 ----
+  
+      foreach $nick ($this->alt_nicks)
+      {
+!       last if $mess->{address};
+  
+        ($mess->{address}) = $mess->{body} =~ s/^(\Q$nick\E\s*[:,-])//;
+      }
+***************
+*** 867,882 ****
+                           $mess->{body})."\n");
+  
+    # check if someone was asking for help
+!   if ($mess->{address} && ($mess->{body} =~ /^help/i))
+!   {
+!     $this->log("Invoking help for '$mess->{who}'\n");
+!     $mess->{body} = $this->help($mess);
+!     $this->say($mess);
+!     return;
+!   }
+  
+    # okay, call the said/emoted method
+!   my $respond = $this->$received($mess);
+  
+    ### what did we get back?
+  
+--- 868,883 ----
+                           $mess->{body})."\n");
+  
+    # check if someone was asking for help
+!   #if ($mess->{address} && ($mess->{body} =~ /^help/i))
+!   #{
+!   #  $this->log("Invoking help for '$mess->{who}'\n");
+!   #  $mess->{body} = $this->help($mess);
+!   #  $this->say($mess);
+!   #  return;
+!   #}
+  
+    # okay, call the said/emoted method
+!   $respond = $this->$received($mess);
+  
+    ### what did we get back?
+  

@@ -1,7 +1,18 @@
 Revision history for Perl extension Bot::CPAN.
 
-0.01_02  Mon Mar 10 02:02:08 2002
-         - thanks to dngor (author of POE), our blocking problems are solved
+0.01_03  Wed Mar 12 02:51:23 2003
+         - generated new Bot::BasicBot patch; fixes more issues
+         - pervase improvements to the internal architecture;
+           deep magic can be found in Glue.pm, which may eventually
+           be spun off as an independant bot development framework
+         - help system fully implemented
+         - we now uses notices instead of privmsg's to return data
+         - 'recent' command added
+         - we now support fully integrated attribute handlers
+         - more information has been added to the POD and README
 
-0.01_01  Sun Mar 09 21:02:08 2002
+0.01_02  Mon Mar 10 02:09:37 2003
+         - our blocking problems are now resolved, thanks to dngor
+
+0.01_01  Sun Mar 09 21:02:08 2003
          - initial developer release
