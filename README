@@ -1,0 +1,79 @@
+NAME
+    Bot::CPAN - provides CPAN services via IRC
+
+SYNOPSIS
+      use Bot::CPAN;
+
+      my $bot = Bot::CPAN->new(
+          channels => ['#cpan'],
+          server => 'grou.ch',
+          port => 6667,
+          nick => 'cpantest',
+          alt_nicks => ['cpantest2', 'cpantest3'],
+          username => 'cpantest',
+          name => 'cpantest',
+          ignore_list => [qw(purl)],
+      );
+      $bot->run();
+
+DESCRIPTION
+    This is the initial developer release of Bot::CPAN. You should not
+    expect that the API will remain stable, as this is currently a work in
+    progress.
+
+    Bot::CPAN allows individuals on IRC to query the CPAN in a great number
+    of different ways. Bot::CPAN will also automatically inform the channel
+    of new uploads to the CPAN.
+
+METHODS
+    * new
+        This constructor returns a Bot::CPAN object, and is inherited from
+        Bot::BasicBot. It will optionally accept named parameters for:
+        channels, server, port, nick, alt_nicks, username, name,
+        ignore_list, store, and log.
+
+    * run
+        Fires the bot up.
+
+CAVEATS
+        At the moment you'll need to patch BasicBot.pm if you expect
+        Bot::CPAN to operate normally. The patch has been sent to the author
+        of Bot::BasicBot, and once it's merged in we'll no longer have to do
+        this. The patch simply corrects a minor error in BasicBot.pm. The
+        patch can be found in etc/.
+
+BUGS
+        If you happen to find one please email me at afoxson@pobox.com.
+        Thank you.
+
+TODO
+          - write actual tests
+          - add support for recent, fetch and readme
+          - improve help system support
+          - try to get the actual sending of data back to users to not block 
+          - perhaps use notices instead of msgs when returning data
+
+COPYRIGHT
+          Copyright (c) 2003 Adam J. Foxson. All rights reserved.
+          Copyright (c) 2003 Casey West. All rights reserved.
+
+LICENSE
+        This program is free software; you may redistribute it and/or modify
+        it under the same terms as Perl itself.
+
+SEE ALSO
+        * perl
+        * CPANPLUS
+        * POE
+        * POE::Component::IRC
+        * Bot::BasicBot
+        * Net::NNTP
+        * Mail::Internet
+
+AUTHOR
+        Adam J. Foxson <afoxson@pobox.com>, with patches from Casey West
+        <cwest@cpan.org> to support the latest POE versions, and a patch
+        from Randal Schwartz <merlyn@stonehenge.com> to support NNTP
+        retrieval of CPAN uploads (as opposed to the old way of doing it via
+        mailbox polling).
+

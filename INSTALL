@@ -1,0 +1,18 @@
+Bot::CPAN
+=========
+
+INSTALLATION
+
+To install this distribution type the following:
+
+   perl Makefile.PL
+   make
+   make test
+   make install
+
+DEPENDENCIES
+
+   Bot::BasicBot 0.04
+   Net::NNTP 2.21
+   Mail::Internet 1.58
+   CPANPLUS 0.042

@@ -1,0 +1,11 @@
+--- BasicBot.pm	Sun Jan 26 13:54:55 2003
++++ /Library/Perl/Bot/BasicBot.pm	Sun Mar  9 17:39:43 2003
+@@ -849,7 +849,7 @@
+ 
+     foreach $nick ($this->alt_nicks)
+     {
+-      last if $this->{address};
++      last if $mess->{address};
+ 
+       ($mess->{address}) = $mess->{body} =~ s/^(\Q$nick\E\s*[:,-])//;
+     }
