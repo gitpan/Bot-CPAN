@@ -21,6 +21,14 @@ Bot::CPAN - provides CPAN services via IRC
       group => 'perl.cpan.testers',
       reload_indices_interval => 300,
       inform_channel_of_new_uploads => 60,
+      debug => 0,
+      search_max_results => 30,
+      policy => { # See 'POLICY CONTROL MECHANISM', in the POD, below
+          '#cpan' => {           # allow channel 'cpan upload' informs, for
+              allow => qw/^POE/, # #cpan, only if it matches ^POE, and
+              deny => qw/.+/,    # deny everything else
+          },
+      },
   );
   $bot->run();
 
@@ -31,7 +39,7 @@ will remain stable, as this is currently a work in progress.
 
 Bot::CPAN is a POE based distribution that allows individuals on IRC to query
 the CPAN in a great number of different ways. Bot::CPAN will also automatically
-inform the channel of new uploads to the CPAN.
+inform the channels of new uploads to the CPAN (by default).
 
 =head1 METHODS
 
@@ -40,14 +48,53 @@ inform the channel of new uploads to the CPAN.
 =item * B<new>
 
 This constructor returns a Bot::CPAN object, and is inherited from
-Bot::BasicBot. It will accept named parameters for: channels, server, port,
-nick, alt_nicks, username, name, ignore_list, store, and log. Bot::CPAN extends
-the Bot::BasicBot constructor to accept the following named parameters:
-news_server, group, reload_indices_interval, and inform_channel_of_new_uploads.
+Bot::CPAN::BasicBot. It will accept named parameters for: channels, server,
+port, nick, alt_nicks, username, name, ignore_list, store, and log. Bot::CPAN
+extends the Bot::CPAN::BasicBot constructor to accept the following named
+parameters: news_server, group, reload_indices_interval,
+inform_channel_of_new_uploads, debug, search_max_results, and policy.
 
 =item * B<run>
 
 Fires up the bot.
+
+=back
+
+=head1 CONSTRUCTOR OPTIONS
+
+=over 4
+
+=item * B<alt_nicks>
+
+=item * B<channels>
+
+=item * B<ignore_list>
+
+=item * B<debug>
+
+=item * B<group>
+
+=item * B<inform_channel_of_new_uploads>
+
+=item * B<name>
+
+=item * B<news_server>
+
+=item * B<nick>
+
+=item * B<policy>
+
+=item * B<port>
+
+=item * B<reload_indices_interval>
+
+=item * B<search_max_results>
+
+=item * B<server>
+
+=item * B<username>
+
+=back
 
 =head1 COMMANDS
 
@@ -93,9 +140,21 @@ retrieves the package of a module
 
 retrieves the full CPAN path of a module
 
+=item * B<readme>
+
+sends README for module via DCC CHAT
+
 =item * B<recent>
 
 shows last ten distributions uploaded to the CPAN
+
+=item * B<rt>
+
+retrieves the RT www path to a module
+
+=item * B<search>
+
+returns modules that match a regex
 
 =item * B<stage>
 
@@ -125,7 +184,15 @@ retrieves the www path to a module
 
 retrieves the latest version of a module
 
+=item * B<whois>
+
+gets an author's name and email from a CPAN ID
+
+=back
+
 =head1 ATTRIBUTES
+
+=over 4
 
 =item * B<:Private>
 
@@ -164,33 +231,62 @@ takes an argument of either 'required', 'optional', or 'refuse'. The user will
 then get an error message if they attempt to use a command in a manner
 inconsistent with its intended use.
 
-=head1 CAVEATS
-
-At the moment you'll need to patch BasicBot.pm if you expect Bot::CPAN to
-operate normally. The patch corrects a few minor errors in BasicBot.pm.
-
-Additionally, you'll also need to patch POE::Component::IRC in order to get the
-prioritized messaging (which is required to prevent blocking during sending
-back lots of data to users).
-
-The patches have been sent to the upstream authors. The patches can be found in
-etc/.
-
-Also, if you expect the bot to have very recent CPAN data, be sure that
-CPANPLUS is set to get indexes directly from ftp.funet.fi.
-
-Bot::BasicBot's alt_nicks doesn't do what you think. It's NOT for specifying
-alternate nicks to use for connecting to IRC if the one you chose is taken.
-It's used for specifying nicks that you'd like the bot to respond to via proxy.
+=back
 
 =head1 HOW TO WRITE A NEW COMMAND
 
 Simple really. Define a subroutine, in CPAN.pm, and add whatever attributes
 you'd like to it's signature (see above). You will be passed three arguments,
 the referrent object, the event hashref, and the command's actual argument.
-To get data back to the user, simply use $self->print(). It's first argument
+To get data back to the user, simply use $self->print(). Its first argument
 should be the event hashref and the other argument is whatever you want to
 return to the user.
+
+=head1 POLICY CONTROL MECHANISM
+
+The policy control mechanism consults the policy hashref specified in the
+constructor. The policy hashref should contain channel hashrefs. The channel
+hashref may contain both 'allow', and 'deny' key/value pairs. The values of
+the keys are regex's which specify which channel 'cpan upload' informs are to
+be allowed or denied. The search stops at the first match.
+
+This is a simplistic and minimal policy control mechanism that is directly
+based on HOSTS_ACCESS(5) (/etc/hosts.(allow|deny)).
+
+A channel 'cpan upload' inform will be allowed when the text of an inform
+matches the allow regex.
+
+Otherwise, a channel 'cpan upload' inform will be denied when the text of an
+inform matches the deny regex.
+
+Otherwise, a channel 'cpan upload' inform will be allowed. If a channel
+doesn't have a specified policy, all channel 'cpan upload' informs will
+be allowed.
+
+You will be matching against strings that look like the below. Bear this
+firmly in mind when you create regex's to match them:
+
+  Test-Reporter-1.19 by AFOXSON
+  POE-0.25 by RCAPUTO
+  Games-Cryptoquote-1.30 by BOBO
+
+=head1 CAVEATS
+
+At the moment, you'll need to patch POE::Component::IRC 2.7 in order to get the
+prioritized messaging (which is required to prevent blocking during sending
+back lots of data to users).
+
+The patch has been sent to the upstream author. The patch can be found in
+etc/.
+
+Also, if you expect the bot to have very recent CPAN data, be sure that
+CPANPLUS is set to get indexes directly from ftp.funet.fi.
+
+Bot::CPAN::BasicBot's alt_nicks doesn't do what you think. It's NOT for
+specifying alternate nicks to use for connecting to IRC if the one you chose
+is taken. It's used for specifying nicks that you'd like the bot to also
+respond for, as if the real nick was addressed. This is a relic from the
+bundling of Bot::BasicBot.
 
 =head1 BUGS
 
@@ -198,8 +294,8 @@ If you happen to find one please email me at afoxson@pobox.com. Thank you.
 
 =head1 TODO
 
-  - Write actual tests.
-  - Add support for 'fetch', 'readme', 'bugs', 'lastupdate', and 'whois'.
+  - Write more tests.
+  - Defer addition of 'bugs' command until CPANPLUS::Backend supports RT's API (http://rt.cpan.org/NoAuth/last10.txt?Queue=dist)
   - Prepare for non-developer release
 
 =head1 COPYRIGHT
@@ -218,19 +314,21 @@ the same terms as Perl itself.
 
 =item * L<perl>
 
+=item * L<Attribute::Handlers>
+
+=item * L<Bot::BasicBot>
+
 =item * L<CPANPLUS>
+
+=item * L<Digest::MD5>
 
 =item * L<POE>
 
 =item * L<POE::Component::IRC>
 
-=item * L<Bot::BasicBot>
-
 =item * L<Net::NNTP>
 
 =item * L<Mail::Internet>
-
-=item * L<Attribute::Handlers>
 
 =back
 
@@ -241,8 +339,5 @@ E<lt>F<cwest@cpan.org>E<gt> to support the latest POE versions, Randal Schwartz
 E<lt>F<merlyn@stonehenge.com>E<gt> to support NNTP retrieval of CPAN uploads
 (as opposed to the old way of doing it via mailbox polling), and Rocco Caputo
 E<lt>F<troc+cpan@pobox.com>E<gt> that solved early-on blocking issues.
-
-Many thanks to gilc@#perl@magnet for spending time on #cpan@magnet beta
-testing.
 
 =cut

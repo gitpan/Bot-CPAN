@@ -12,8 +12,10 @@ To install this distribution type the following:
 
 DEPENDENCIES
 
-    Bot::BasicBot 0.04
     Net::NNTP 2.21
     Mail::Internet 1.58
     CPANPLUS 0.042
     Attribute::Handlers 0.77
+    POE 0.22
+    POE::Component::IRC 2.7
+    Digest::MD5 2.20

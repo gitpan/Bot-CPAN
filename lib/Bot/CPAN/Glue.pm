@@ -1,5 +1,5 @@
-# $Revision: 1.7 $
-# $Id: Glue.pm,v 1.7 2003/03/13 10:13:59 afoxson Exp $
+# $Revision: 1.17 $
+# $Id: Glue.pm,v 1.17 2003/03/17 05:48:10 afoxson Exp $
 
 # Bot::CPAN::Glue - Deep magic for Bot::CPAN
 # Copyright (c) 2003 Adam J. Foxson. All rights reserved.
@@ -19,7 +19,7 @@ use strict;
 use Digest::MD5;
 use POE;
 use vars qw(@ISA @EXPORT $VERSION %commands);
-use Bot::BasicBot;
+use Bot::CPAN::BasicBot;
 use constant NOT_A_COMMAND   => 0;
 use constant PUBLIC_COMMAND  => 1<<0;
 use constant PRIVATE_COMMAND => 1<<1;
@@ -32,7 +32,6 @@ use constant PRIVATE_PRIVMSG => 1<<7;
 use constant PERM            => 0;
 use constant HELP            => 1;
 use constant ARG             => 2;
-use constant DEBUG           => 0;
 use Attribute::Handlers autotie => {
 	'__CALLER__::Public'  => __PACKAGE__,
 	'__CALLER__::Private' => __PACKAGE__,
@@ -42,8 +41,8 @@ use Attribute::Handlers autotie => {
 	'__CALLER__::Args'    => __PACKAGE__,
 };
 
-($VERSION) = '$Revision: 1.7 $' =~ /\s+(\d+\.\d+)\s+/;
-@ISA       = qw(Bot::BasicBot);
+($VERSION) = '$Revision: 1.17 $' =~ /\s+(\d+\.\d+)\s+/;
+@ISA       = qw(Bot::CPAN::BasicBot);
 
 local $^W;
 
@@ -59,7 +58,8 @@ sub _command {
 
 	$self->set('requests', $self->get('requests') + 1);
 	$message->{data} = $command;
-	$self->log("DEBUG: _command: $command, $module_or_author\n") if DEBUG;
+	$self->log("DEBUG: _command: $command, $module_or_author\n") if
+		$self->debug;
 	$self->_dispatch($message, $module_or_author);
 }
 
@@ -75,7 +75,7 @@ sub _dispatch {
 
 	if (defined $commands{$command}[PERM] and
 		$commands{$command}[PERM] & FORK) {
-			$self->log("DEBUG: _dispatch: fork $command, $module_or_author\n") if DEBUG;
+			$self->log("DEBUG: _dispatch: fork $command, $module_or_author\n") if $self->debug;
 			$self->forkit({
 				run => \&{"${\(ref($self))}::$command"},
 				handler => '_fork_handler',
@@ -87,7 +87,7 @@ sub _dispatch {
 		});
 	} 
 	else {
-		$self->log("DEBUG: _dispatch: non-fork $command, $module_or_author\n") if DEBUG;
+		$self->log("DEBUG: _dispatch: non-fork $command, $module_or_author\n") if $self->debug;
 		$self->$command($message, $module_or_author);
 	}
 }
@@ -111,7 +111,7 @@ sub _fork_handler {
 
 	my $args = $self->{forks}->{$wheel_id}->{args};
 
-	$self->log("DEBUG: _fork_handler: " . $args->{data} . "\n") if DEBUG;
+	$self->log("DEBUG: _fork_handler: " . $args->{data} . "\n") if $self->debug;
 
 	$args->{body} = $body;
 	$self->_return($args);
@@ -127,19 +127,21 @@ sub _get_type {
 
 	if ($message->{channel} eq "msg") {
 		$type = 'notice'; # the default
-		$type = 'privmsg' if defined $commands{$command}[PERM] and
+		$type = 'privmsg' if $command and
+			defined $commands{$command}[PERM] and
 			$commands{$command}[PERM] & PRIVATE_PRIVMSG;
 	}
 	else {
 		$type = 'privmsg'; # the default
-		$type = 'notice' if defined $commands{$command}[PERM] and
+		$type = 'notice' if $command and
+			defined $commands{$command}[PERM] and
 			$commands{$command}[PERM] & PUBLIC_NOTICE;
 	}
 
-	$type .= 'low' if defined $commands{$command}[PERM] and
+	$type .= 'low' if $command and defined $commands{$command}[PERM] and
 		$commands{$command}[PERM] & LOW_PRIO;
 
-	$self->log("DEBUG: _get_type: $command: $type\n") if DEBUG;
+	$self->log("DEBUG: _get_type" . (defined $command ? ": $command" : '') . (defined $type ? ": $type" : '') . "\n") if $self->debug;
 
 	return $type;
 }
@@ -159,8 +161,8 @@ sub _help {
 }
 
 # ordinarily, we wouldn't need to define our own constructor, but since we
-# need to add our own options (news_server and group) to the options that
-# Bot::Basicbot provides we'll need to separate the options that B::B
+# need to add our own options (news_server, group, etc) to the options that
+# Bot::CPAN::Basicbot provides we'll need to separate the options that B::C::B
 # expects from the options that B::C expects
 sub new {
 	my $self = shift;
@@ -170,6 +172,8 @@ sub new {
 		if ($key eq 'news_server' ||
 			$key eq 'group' ||
 			$key eq 'reload_indices_interval' ||
+			$key eq 'policy' ||
+			$key eq 'search_max_results' ||
 			$key eq 'inform_channel_of_new_uploads') {
 				push @my_args, $key, $value;
 		}
@@ -180,19 +184,19 @@ sub new {
 
 	my $upstream = $self->SUPER::new(@upstream_args);
 
+	# set up some sane defaults
+	$upstream->set('news_server', 'nntp.perl.org');
+	$upstream->set('search_max_results', 20);
+	$upstream->set('group', 'perl.cpan.testers');
+	$upstream->set('reload_indices_interval', 300);
+	$upstream->set('inform_channel_of_new_uploads', 60);
+	$upstream->set('policy', {});
+
 	while (my ($key, $value) = splice @my_args, 0, 2) {
 		$upstream->set($key, $value);
 	}
 
-	# set up some sane defaults
-	$upstream->set('news_server', 'nntp.perl.org') unless
-		$upstream->get('news_server');
-	$upstream->set('group', 'perl.cpan.testers') unless
-		$upstream->get('group');
-	$upstream->set('reload_indices_interval', 300) unless
-		$upstream->get('reload_indices_interval');
-	$upstream->set('inform_channel_of_new_uploads', 60) unless
-		$upstream->get('inform_channel_of_new_uploads');
+	$upstream->_verify_policy();
 
 	return $upstream;
 }
@@ -227,6 +231,7 @@ sub _parse_command {
 	my ($command, $module_or_author) = ($1, $2);
 
 	$command = lc $command;
+	$module_or_author = '' unless defined $module_or_author;
 
 	return ($command, $module_or_author);
 }
@@ -261,10 +266,7 @@ sub _public_command {
 sub _return
 {
 	my ($self, $message) = @_;
-	my $body = $message->{body};
-
-	$body = "$message->{who}: $body" if
-		$message->{channel} ne "msg" and $message->{address};
+	my $body = $message->{body} || '';
 
 	my $who = ($message->{channel} eq "msg") ?
 		$message->{who} : $message->{channel};
@@ -274,9 +276,13 @@ sub _return
 		return;
 	}
 
+	$body = "$message->{who}: $body" if
+		$message->{channel} ne "msg" and $message->{address};
+
 	my $type = $self->_get_type($message);
 
-	$self->log("DEBUG: _return: $who: " . $message->{data} . "\n") if DEBUG;
+	$self->log("DEBUG: _return" . (defined $who ? ": $who" : '') . (defined $message->{data} ? ": $message->{data}" : '') . "\n") if
+		$self->debug;
 
 	$self->$type($who, $body);
 }
@@ -289,6 +295,52 @@ sub said {
 	return undef unless $message->{address}; 
 
 	$self->_command($message);
+}
+
+sub _verify_policy {
+	my $self = shift;
+	my $policy = $self->get('policy');
+
+	# we are guaranteed that the policy "exists", internally speaking..
+	# so.. if it's not defined don't bother verifying it..
+	return unless defined $policy;
+
+	# since it is defined, let's make sure it's a hashref
+	die "Policy must be a hashref\n" unless ref $policy eq 'HASH';
+
+	# empty policy? don't bother verifying..
+	return unless scalar keys %{$policy} > 0;
+
+	# ok, we have a policy, lets check it
+	my $channels = join '|', $self->channels;
+	for my $channel (sort keys %{$policy}) {
+		# make sure that all channels in 'policy' are listed in 'channels'
+		die "$channel is not specified in 'channels'\n" unless
+			$channel =~ /^$channels$/;
+
+		my $chanpol = $policy->{$channel};
+
+		# if there is an undefined channel policy, skip it!
+		next unless defined $chanpol;
+
+		# however, if it is defined and not a hashref, that's a no-no
+		die "Policy for $channel must be a hashref\n" unless
+			ref $chanpol eq 'HASH';
+
+		# and skip it if it's empty
+		next unless scalar keys %{$chanpol} > 0;
+
+		# make sure they didn't, say, mis-spell something
+		for my $key (sort keys %{$chanpol}) {
+			die "Channel policy for $channel specifies unknown type of: $key\nValid types are: allow, deny.\n" if $key !~ /^allow|deny$/;
+		}
+
+		# if they do specify an allow/deny, make sure they are defined
+		die "Allow policy for $channel must be defined\n" if
+			exists $chanpol->{allow} and not defined $chanpol->{allow};
+		die "Deny policy for $channel must be defined\n" if
+			exists $chanpol->{deny} and not defined $chanpol->{deny};
+	}
 }
 
 # make sure the user is using a given command in an appropriate manner
@@ -349,37 +401,23 @@ sub Public : ATTR(CODE) {
 # this is what you call one hell of a sanity check!
 
 BEGIN {
-	sub _death {
-		my $patchee = shift;
-		die "\n\033[1m" .
-		"=> You aren't using the correct $patchee. <=\033[m\007\n\n" .
-		"Possible reasons:\n\n" .
-		"1 - You did not patch $patchee.\n" .
-		"2 - You patched over an already patched $patchee.\n" .
-		"3 - You are using the wrong version of $patchee.\n\n" .
-		"Reinstall $patchee, and patch it from scratch.\n" .
-		"The patch files are location in etc/. See POD for details.\n\n";
-	}
-
-	sub _check_patch_bb {
-		open FILE, $INC{'Bot/BasicBot.pm'} or
-			die "Can't open Bot::Basic patchee: $!";
-		binmode FILE;
-		_death('Bot::BasicBot') unless
-			Digest::MD5->new->addfile(*FILE)->hexdigest eq
-				'69844ab3191618cd7a0e6c93bd88a543';
-	}
 
 	sub _check_patch_pci {
 		open FILE, $INC{'POE/Component/IRC.pm'} or
 			die "Can't open POE::Component::IRC patchee: $!";
 		binmode FILE;
-		_death('POE::Component::IRC') unless
+		die "\n\033[1m" .
+		"             => You aren't using the correct POE::Component::IRC. <=\033[m\007\n\n".
+		"Possible reasons:\n\n" .
+		"1 - You did not patch POE::Component::IRC.\n" .
+		"2 - You patched over an already patched POE::Component::IRC.\n" .
+		"3 - You are not using POE::Component::IRC 2.7.\n\n" .
+		"Reinstall POE::Component::IRC, and patch it from scratch.\n" .
+		"The patch file is located in etc/. See POD for details.\n\n" unless
 			Digest::MD5->new->addfile(*FILE)->hexdigest eq
 				'8267d47db2e11e764862c210b1a30487';
 	}
 
-	_check_patch_bb();
 	_check_patch_pci();
 }
 

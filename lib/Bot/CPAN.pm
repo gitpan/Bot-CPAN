@@ -1,5 +1,5 @@
-# $Revision: 1.15 $
-# $Id: CPAN.pm,v 1.15 2003/03/13 10:13:58 afoxson Exp $
+# $Revision: 1.23 $
+# $Id: CPAN.pm,v 1.23 2003/03/17 05:22:14 afoxson Exp $
 
 # Bot::CPAN - provides CPAN services via IRC
 # Copyright (c) 2003 Adam J. Foxson. All rights reserved.
@@ -25,7 +25,7 @@ use Bot::CPAN::Glue;
 use vars qw(@ISA $VERSION);
 
 @ISA = qw(Bot::CPAN::Glue);
-$VERSION = '0.01_05';
+$VERSION = '0.01_06';
 
 local $^W;
 
@@ -48,7 +48,40 @@ sub author :Private(notice) :Public(privmsg) :Args(required)
 sub botsnack :Public(privmsg) :Args(refuse)
 :Help('gives the bot a snack') {
 	my ($self, $event) = @_;
-	$self->_print($event, "*8-)");
+	$self->_print($event, ':)');
+}
+
+sub _check_policy {
+	my ($self, $channel, $inform) = @_;
+	my $policy = $self->get('policy'); # by default is {}
+
+	# we are guaranteed that the policy "exists", internally speaking..
+	# but if it's not defined, allow all
+	return 1 unless defined $policy;
+
+	# empty policy? allow all
+	return 1 unless scalar keys %{$policy} > 0;
+
+	# non-existant channel policy? allow all
+	return 1 unless exists $policy->{$channel};
+
+	my $chanpol = $policy->{$channel};
+
+	# undefined channel policy? allow all
+	return 1 unless defined $chanpol;
+
+	# empty channel policy? allow all
+	return 1 unless scalar keys %{$chanpol} > 0;
+
+	# we can assume that if an allow/deny exists it is defined
+	if (exists $chanpol->{allow} and $inform =~ /$chanpol->{allow}/i) {
+		return 1;
+	}
+	elsif (exists $chanpol->{deny} and $inform =~ /$chanpol->{deny}/i) {
+		return 0;
+	}
+
+	return 1;
 }
 
 # this is called the moment we successfully connect to a server
@@ -60,12 +93,13 @@ sub connected {
 	$self->set('requests', 0);
 	$self->set('recent', []);
 
-	my $c = Net::NNTP->new($self->get('news_server')) or
+	my $nntp = Net::NNTP->new($self->get('news_server')) or
 		die "Cannot open NNTP server: $!";
-	my ($articles,$low,$high) = $c->group($self->get('group')) or
+	my ($articles) = ($nntp->group($self->get('group')))[0] or
 		die "Cannot go to group: $!";
-	$self->set('articles', $articles);
+	$self->set('articles', $articles + 1);
 
+	$poe_kernel->state('irc_dcc_start', $self);
 	$poe_kernel->state('_reload_indices', $self);
 	$poe_kernel->state('_inform_channel_of_new_uploads', $self);
 	$poe_kernel->delay_add('_reload_indices', 0);
@@ -145,6 +179,8 @@ sub _get_details {
 	my $details = $cp->details(modules => [$module]);
 
 	return "No such module: $module" unless $details->ok;
+	return "No such module: $module" unless
+		$details->rv->{$module}->{$type};
 	return $details->rv->{$module}->{$type};
 }
 
@@ -180,30 +216,6 @@ sub help :Private(notice) :LowPrio :Args(optional)
 	else {
 		$self->_print($event, $self->_help($command));
 	}
-}
-
-sub _inform_channel_of_new_uploads {
-	my $self = $_[OBJECT];
-	$self->log("Checking for new CPAN uploads\n");
-
-	my $c = Net::NNTP->new($self->get('news_server')) or
-		die "Cannot open NNTP server: $!";
-	my ($articles,$low,$high) = $c->group($self->get('group')) or
-		die "Cannot go to group: $!";
-	my $iteration_articles = $articles;
-
-	for (;$iteration_articles > $self->get('articles') &&
-			$self->get('articles') <= $iteration_articles;
-			$self->set('articles', $self->get('articles') + 1)) {
-				my $art = $c->article($self->get('articles')) or next;
-				my $mail = Mail::Internet->new($art);
-
-				$mail->tidy_body;
-				$self->_parse_article($mail);
-	}
-
-	$poe_kernel->delay_add('_inform_channel_of_new_uploads',
-		$self->get('inform_channel_of_new_uploads'));
 }
 
 sub language :Private(notice) :Public(privmsg) :Args(required)
@@ -255,7 +267,7 @@ sub _parse_article {
 	my ($self, $mail) = @_;
 	my $body = join '', @{$mail->body()};
 
-	return unless $body =~
+	return 1 unless $body =~
 	m/
 		^ The\ (?:URL | uploaded\ file) \s* $ \n
 		^ $ \n
@@ -279,17 +291,22 @@ sub _parse_article {
 	$mail->{_cpan_file}       = $2;
 	$mail->{_cpan_entered_by} = $5;
 
-	return unless $mail->{_cpan_file} =~ /\.tgz$|\.tar\.gz$|\.zip$/;
+	return 2 unless $mail->{_cpan_file} =~ /\.tgz$|\.tar\.gz$|\.zip$/;
 
 	($mail->{_cpan_short}) = $mail->{_cpan_file} =~
 		/^.+\/(.+)(?:\.tar\.gz$|\.tgz$|\.zip$)/;
 
 	$self->_add_to_recent($mail->{_cpan_short});
 
+	my $inform = "$mail->{_cpan_short} by $mail->{_cpan_entered_by}";
+	my $chan_inform = "upload: $inform";
+
 	for my $channel ($self->channels()) {
-		$self->emote({channel => $channel, body =>
-			"upload: $mail->{_cpan_short} by $mail->{_cpan_entered_by}"});
+		$self->emote({channel => $channel, body => $chan_inform}) if
+			$self->_check_policy($channel, $inform);
 	}
+
+	return;
 }
 
 sub path :Private(notice) :Public(privmsg) :Args(required)
@@ -306,35 +323,89 @@ sub path :Private(notice) :Public(privmsg) :Args(required)
 	$self->_print($event, "\$CPAN/authors/id$path");
 }
 
+sub readme :Public(privmsg) :Private(notice) :Args(required)
+:Help('sends README for module via DCC CHAT') {
+	my ($self, $event, $module) = @_;
+	my $cp = $self->get('cp');
+	my $mod = $cp->module_tree->{$module};
+
+	unless (defined $mod) {
+		$self->_print($event, "No such module: $module");
+		return;
+	}
+
+	my $readme = $cp->readme(modules => [$module]);
+
+	unless ($readme->ok) {
+		$self->_print($event, "No README for: $module");
+		return;
+	}
+
+	my $who = $event->{who};
+
+	$self->set("readme_$who", $module);
+	$self->_print($event, "Sending..");
+	$self->dcc($who, 'CHAT');
+}
+
 sub recent :Private(notice) :Public(privmsg) :Args(refuse)
 :Help('shows last ten distributions uploaded to the CPAN') {
 	my ($self, $event) = @_;
 	my @recent = @{$self->get('recent')};
 
 	if (scalar @recent < 1) {
-		$self->_print($event, "I just got here. Give me a bit to get settled. :-)");
+		$self->_print($event, "I just got here. Give me a bit to get settled. :)");
 		return;
 	}
 
 	$self->_print($event, join ', ', (reverse @recent));
 }
 
-sub _reload_indices {
-	my $self = $_[OBJECT];
+sub rt :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the RT www path to a module') {
+	my ($self, $event, $module) = @_;
+	my $cp = $self->get('cp');
+	my $url = $cp->module_tree->{$module};
+	my $buffer = 'http://rt.cpan.org/NoAuth/Bugs.html?Dist=';
 
-	$self->log("Reloading indices\n");
-	$self->forkit({
-		run => sub {
-			my $self = shift;
-			my $cp = $self->get('cp');
+	unless (defined $url) {
+		$self->_print($event, "No such module: $module");
+		return;
+	}
 
-			$cp->reload_indices(update_source => 1);
-		},
-		handler => '_fork_handler',
-		body => $self,
-	});
-	$poe_kernel->delay_add('_reload_indices',
-		$self->get('reload_indices_interval'));
+	my $package = $url->package();
+
+	unless ($package =~ s/\.tgz$|\.tar\.gz$|\.zip$//) {
+		$self->_print($event, "Unable to get url for: $module");
+		return;
+	}
+
+	$buffer .= $package;
+	$self->_print($event, $buffer);
+}
+
+sub search :Private(notice) :Args(required) :LowPrio
+:Help('returns modules that match a regex') {
+	my ($self, $event, $module) = @_;
+	my $cp = $self->get('cp');
+	my $mod_search = $cp->search(type => 'module', list => [$module]);
+	my @cache = ();
+
+	for my $key (keys %{$mod_search}) {
+		push @cache, $key;
+	}
+
+	if (scalar @cache > $self->get('search_max_results')) {
+		$self->_print($event, "Too many matches (${\(scalar @cache)} > ${\($self->get('search_max_results'))}). Be more specific please");
+	}
+	elsif (scalar @cache == 0) {
+		$self->_print($event, "No matches");
+	}
+	else {
+		for my $key (sort @cache) {
+			$self->_print($event, $key);
+		}
+	}
 }
 
 sub stage :Private(notice) :Public(privmsg) :Args(required)
@@ -411,6 +482,109 @@ sub version :Private(notice) :Public(privmsg) :Args(required)
 :Help('retrieves the latest version of a module') {
 	my ($self, $event, $module) = @_;
 	$self->_print($event, $self->_get_details($module, 'Version on CPAN'));
+}
+
+sub whois :Private(notice) :Public(privmsg) :Args(required)
+:Help('gets an author's name and email from a CPAN ID') {
+	my ($self, $event, $author) = @_;
+	my $cp = $self->get('cp');
+	my $cpanauthor = $cp->author_tree->{$author};
+
+	unless (defined $cpanauthor) {
+		$self->_print($event, "No such CPAN ID: $author");
+		return;
+	}
+
+	my $name = $cpanauthor->name;
+	my $email = $cpanauthor->email || 'no email';
+
+	$self->_print($event, "$name ($email)");
+}
+
+# special timed event handlers below
+
+sub _inform_channel_of_new_uploads {
+	my $self = $_[OBJECT];
+	my $nntp = Net::NNTP->new($self->get('news_server'));
+	my ($articles) = ($nntp->group($self->get('group')))[0] if defined $nntp;
+
+	if (defined $nntp and defined $articles) {
+		my $old_articles = $self->get('articles');
+		my ($match, $no_body_match, $no_filename_match, $checked) =
+			(0, 0, 0, 0);
+
+		if ($articles >= $old_articles) {
+			$self->set('articles', $articles + 1);
+
+			for my $article ($old_articles .. $articles) {
+				my $article_data;
+
+				unless ($article_data = $nntp->article($article)) {
+					$self->log("Unable to retrieve article # $article\n");
+					next;
+				} 
+
+				my $mail = Mail::Internet->new($article_data);
+				$mail->tidy_body;
+				my $retval = $self->_parse_article($mail);
+
+				if (not $retval) { $match++ }
+				elsif ($retval == 1) { $no_body_match++ }
+				elsif ($retval == 2) { $no_filename_match++ }
+				$checked++;
+			}
+		}
+
+		$self->log(sprintf "%d new article%s, %d match%s, %d reject%s/filename, %d reject%s/body\n", $checked, $checked == 1 ? '' : 's', $match, $match == 1 ? '' : 'es', $no_filename_match, $no_filename_match == 1 ? '' : 's', $no_body_match, $no_body_match == 1 ? '' : 's');
+	}
+	else {
+		$self->log("Unable to check for new uploads: ${\($! ? $! : '?')}\n");
+	}
+
+	$poe_kernel->delay_add('_inform_channel_of_new_uploads',
+		$self->get('inform_channel_of_new_uploads'));
+}
+
+sub irc_dcc_start
+{
+	my ($self, $magic, $who, $type) = @_[OBJECT, ARG0, ARG1, ARG2];
+
+	unless ($type =~ /CHAT/i) {
+		$self->log("Got an invalid DCC request from $who\n");
+		return;
+	}
+
+	my $cp = $self->get('cp');
+	my $module = $self->get("readme_$who");
+
+	unless ($module) {
+		$self->log("$who requested a DCC CHAT, but I've no matching README\n");
+		return;
+	}
+
+	my $readme = $cp->readme(modules => [$module]);
+	my $length = length($readme->rv->{$module});
+
+	$self->log("Sending $who README for $module ($length)\n");
+	$self->set("readme_$who", '');
+	$self->dcc_chat($magic, $readme->rv->{$module});
+}
+
+sub _reload_indices {
+	my $self = $_[OBJECT];
+
+	$self->forkit({
+		run => sub {
+			my $self = shift;
+			my $cp = $self->get('cp');
+
+			$cp->reload_indices(update_source => 1);
+		},
+		handler => '_fork_handler',
+		body => $self,
+	});
+	$poe_kernel->delay_add('_reload_indices',
+		$self->get('reload_indices_interval'));
 }
 
 1;

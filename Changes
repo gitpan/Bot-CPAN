@@ -1,6 +1,34 @@
 Revision history for Perl extension Bot::CPAN.
 
-0.01_05  Thu Mar 13 05:35:41 2003
+0.01_06  Mon Mar 17 00:56:09 2003
+         - improved error handling of NNTP functions
+         - comprehensive NNTP logging has been added
+         - a significant bug with NNTP processing has been fixed; this would
+           cause channel 'cpan upload' informs to take systematically longer
+           to actually post
+         - Bot::BasicBot has been patched too extensively to maintain it as a
+           dependency, not to mention the further patching it needs, therefore
+           it has been bundled, and will eventually be further integrated, and
+           perhaps rewritten
+         - logging format further improved; entries are now timestamped,
+           communications to the bot are wrapped in => <='s, and we no longer
+           log channel chatter, unless we were specifically addressed or if
+           debugging is enabled
+         - fixed several bugs that would generate uninitialized value errors
+         - fixed a minor issue with _get_details in which it was not reporting
+           that a module was invalid
+         - doubled the number of tests
+         - made further improvements to the POD
+         - added 'debug' option to the constructor. if this is enabled you will
+           get *extremely* verbose debugging output
+         - added 'policy' option to the constructor (see POD)
+         - added 'search_max_results' to the constructor
+         - added 'rt' command - gets url of a dist's request tracker page
+         - added 'whois' command - gets a name/email from a CPAN ID
+         - added 'search' command - returns modules that match a regex
+         - added 'readme' command - returns README for a module via DCC CHAT
+
+0.01_05  Thu Mar 13 05:10:18 2003
          - new patches for both POE::Component::IRC, and Bot::BasicBot are
            included. you'll need to reinstall both distributions from scratch,
            and re-patch both with the new patches
@@ -31,6 +59,7 @@ Revision history for Perl extension Bot::CPAN.
          - 'recent' command added
          - we now support fully integrated attribute handlers
          - more information has been added to the POD and README
+         - many thanks to gilc@#perl@magnet for beta testing
 
 0.01_02  Mon Mar 10 02:09:37 2003
          - our blocking problems are now resolved, thanks to dngor

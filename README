@@ -17,6 +17,14 @@ SYNOPSIS
           group => 'perl.cpan.testers',
           reload_indices_interval => 300,
           inform_channel_of_new_uploads => 60,
+          debug => 0,
+          search_max_results => 30,
+          policy => { # See 'POLICY CONTROL MECHANISM', in the POD, below
+              '#cpan' => {           # allow channel 'cpan upload' informs, for
+                  allow => qw/^POE/, # #cpan, only if it matches ^POE, and
+                  deny => qw/.+/,    # deny everything else
+              },
+          },
       );
       $bot->run();
 
@@ -26,177 +34,227 @@ DESCRIPTION
 
     Bot::CPAN is a POE based distribution that allows individuals on IRC to
     query the CPAN in a great number of different ways. Bot::CPAN will also
-    automatically inform the channel of new uploads to the CPAN.
+    automatically inform the channels of new uploads to the CPAN (by
+    default).
 
 METHODS
     * new
         This constructor returns a Bot::CPAN object, and is inherited from
-        Bot::BasicBot. It will accept named parameters for: channels,
+        Bot::CPAN::BasicBot. It will accept named parameters for: channels,
         server, port, nick, alt_nicks, username, name, ignore_list, store,
-        and log. Bot::CPAN extends the Bot::BasicBot constructor to accept
-        the following named parameters: news_server, group,
-        reload_indices_interval, and inform_channel_of_new_uploads.
+        and log. Bot::CPAN extends the Bot::CPAN::BasicBot constructor to
+        accept the following named parameters: news_server, group,
+        reload_indices_interval, inform_channel_of_new_uploads, debug,
+        search_max_results, and policy.
 
     * run
         Fires up the bot.
 
+CONSTRUCTOR OPTIONS
+    * alt_nicks
+    * channels
+    * ignore_list
+    * debug
+    * group
+    * inform_channel_of_new_uploads
+    * name
+    * news_server
+    * nick
+    * policy
+    * port
+    * reload_indices_interval
+    * search_max_results
+    * server
+    * username
+
 COMMANDS
-        * author
-            retrieves the author of a module
+    * author
+        retrieves the author of a module
 
-        * botsnack
-            gives the bot a snack
+    * botsnack
+        gives the bot a snack
 
-        * description
-            retrieves the description of a module
+    * description
+        retrieves the description of a module
 
-        * details
-            retrieves full details of a module
+    * details
+        retrieves full details of a module
 
-        * distributions
-            retrieves all of the distributions by an author
+    * distributions
+        retrieves all of the distributions by an author
 
-        * help
-            provides instruction on how to use this bot
+    * help
+        provides instruction on how to use this bot
 
-        * language
-            retrieves the language of a module
+    * language
+        retrieves the language of a module
 
-        * modules
-            retrieves the modules created by a given author
+    * modules
+        retrieves the modules created by a given author
 
-        * package
-            retrieves the package of a module
+    * package
+        retrieves the package of a module
 
-        * path
-            retrieves the full CPAN path of a module
+    * path
+        retrieves the full CPAN path of a module
 
-        * recent
-            shows last ten distributions uploaded to the CPAN
+    * readme
+        sends README for module via DCC CHAT
 
-        * stage
-            retrieves the stage of a module
+    * recent
+        shows last ten distributions uploaded to the CPAN
 
-        * status
-            retrieves the status of the bot
+    * rt
+        retrieves the RT www path to a module
 
-        * style
-            retrieves the style of a module
+    * search
+        returns modules that match a regex
 
-        * support
-            retrieves the support level of a module
+    * stage
+        retrieves the stage of a module
 
-        * tests
-            retrieves the test results of a module
+    * status
+        retrieves the status of the bot
 
-        * url
-            retrieves the www path to a module
+    * style
+        retrieves the style of a module
 
-        * version
-            retrieves the latest version of a module
+    * support
+        retrieves the support level of a module
+
+    * tests
+        retrieves the test results of a module
+
+    * url
+        retrieves the www path to a module
+
+    * version
+        retrieves the latest version of a module
+
+    * whois
+        gets an author's name and email from a CPAN ID
 
 ATTRIBUTES
-        * :Private
-            Indicates that this command can be executed via a /msg. This
-            attribute takes an argument of either 'notice', or 'privmsg',
-            indicating that manner in which the data should be returned to
-            the user.
+    * :Private
+        Indicates that this command can be executed via a /msg. This
+        attribute takes an argument of either 'notice', or 'privmsg',
+        indicating that manner in which the data should be returned to the
+        user.
 
-        * :Public
-            Indicates that this command can be executed publically from
-            within a channel. This attribute takes an argument of either
-            'notice', or 'privmsg', indicating that manner in which the data
-            should be returned to the user.
+    * :Public
+        Indicates that this command can be executed publically from within a
+        channel. This attribute takes an argument of either 'notice', or
+        'privmsg', indicating that manner in which the data should be
+        returned to the user.
 
-        * :Fork
-            Indicates that this command should be forked off. This should be
-            used only for commands that take a long time to execute (like
-            'tests'). Essentially, forking off a long running command will
-            prevent the execution from blocking the bot.
+    * :Fork
+        Indicates that this command should be forked off. This should be
+        used only for commands that take a long time to execute (like
+        'tests'). Essentially, forking off a long running command will
+        prevent the execution from blocking the bot.
 
-        * :LowPrio
-            Indicates that this command's data should be returned to the
-            user with a low priority. This should be used only for commands
-            that return a lot of discrete chunks of data back to the user
-            (like 'tests'). This will prevent the returning of a lot of data
-            from blocking the bot.
+    * :LowPrio
+        Indicates that this command's data should be returned to the user
+        with a low priority. This should be used only for commands that
+        return a lot of discrete chunks of data back to the user (like
+        'tests'). This will prevent the returning of a lot of data from
+        blocking the bot.
 
-        * :Help
-            Defines the help message for this command, which will be
-            available via: /msg bot help <command>.
+    * :Help
+        Defines the help message for this command, which will be available
+        via: /msg bot help <command>.
 
-        * :Args
-            Indicates the nature of the arguments sent to this command. This
-            attribute takes an argument of either 'required', 'optional', or
-            'refuse'. The user will then get an error message if they
-            attempt to use a command in a manner inconsistent with its
-            intended use.
-
-CAVEATS
-            At the moment you'll need to patch BasicBot.pm if you expect
-            Bot::CPAN to operate normally. The patch corrects a few minor
-            errors in BasicBot.pm.
-
-            Additionally, you'll also need to patch POE::Component::IRC in
-            order to get the prioritized messaging (which is required to
-            prevent blocking during sending back lots of data to users).
-
-            The patches have been sent to the upstream authors. The patches
-            can be found in etc/.
-
-            Also, if you expect the bot to have very recent CPAN data, be
-            sure that CPANPLUS is set to get indexes directly from
-            ftp.funet.fi.
-
-            Bot::BasicBot's alt_nicks doesn't do what you think. It's NOT
-            for specifying alternate nicks to use for connecting to IRC if
-            the one you chose is taken. It's used for specifying nicks that
-            you'd like the bot to respond to via proxy.
+    * :Args
+        Indicates the nature of the arguments sent to this command. This
+        attribute takes an argument of either 'required', 'optional', or
+        'refuse'. The user will then get an error message if they attempt to
+        use a command in a manner inconsistent with its intended use.
 
 HOW TO WRITE A NEW COMMAND
-            Simple really. Define a subroutine, in CPAN.pm, and add whatever
-            attributes you'd like to it's signature (see above). You will be
-            passed three arguments, the referrent object, the event hashref,
-            and the command's actual argument. To get data back to the user,
-            simply use $self->print(). It's first argument should be the
-            event hashref and the other argument is whatever you want to
-            return to the user.
+    Simple really. Define a subroutine, in CPAN.pm, and add whatever
+    attributes you'd like to it's signature (see above). You will be passed
+    three arguments, the referrent object, the event hashref, and the
+    command's actual argument. To get data back to the user, simply use
+    $self->print(). Its first argument should be the event hashref and the
+    other argument is whatever you want to return to the user.
+
+POLICY CONTROL MECHANISM
+    The policy control mechanism consults the policy hashref specified in
+    the constructor. The policy hashref should contain channel hashrefs. The
+    channel hashref may contain both 'allow', and 'deny' key/value pairs.
+    The values of the keys are regex's which specify which channel 'cpan
+    upload' informs are to be allowed or denied. The search stops at the
+    first match.
+
+    This is a simplistic and minimal policy control mechanism that is
+    directly based on HOSTS_ACCESS(5) (/etc/hosts.(allow|deny)).
+
+    A channel 'cpan upload' inform will be allowed when the text of an
+    inform matches the allow regex.
+
+    Otherwise, a channel 'cpan upload' inform will be denied when the text
+    of an inform matches the deny regex.
+
+    Otherwise, a channel 'cpan upload' inform will be allowed. If a channel
+    doesn't have a specified policy, all channel 'cpan upload' informs will
+    be allowed.
+
+    You will be matching against strings that look like the below. Bear this
+    firmly in mind when you create regex's to match them:
+
+      Test-Reporter-1.19 by AFOXSON
+      POE-0.25 by RCAPUTO
+      Games-Cryptoquote-1.30 by BOBO
+
+CAVEATS
+    At the moment, you'll need to patch POE::Component::IRC 2.7 in order to
+    get the prioritized messaging (which is required to prevent blocking
+    during sending back lots of data to users).
+
+    The patch has been sent to the upstream author. The patch can be found
+    in etc/.
+
+    Also, if you expect the bot to have very recent CPAN data, be sure that
+    CPANPLUS is set to get indexes directly from ftp.funet.fi.
+
+    Bot::CPAN::BasicBot's alt_nicks doesn't do what you think. It's NOT for
+    specifying alternate nicks to use for connecting to IRC if the one you
+    chose is taken. It's used for specifying nicks that you'd like the bot
+    to also respond for, as if the real nick was addressed. This is a relic
+    from the bundling of Bot::BasicBot.
 
 BUGS
-            If you happen to find one please email me at afoxson@pobox.com.
-            Thank you.
+    If you happen to find one please email me at afoxson@pobox.com. Thank
+    you.
 
 TODO
-              - Write actual tests.
-              - Add support for 'fetch', 'readme', 'bugs', 'lastupdate', and 'whois'.
-              - Prepare for non-developer release
+      - Write more tests.
+      - Defer addition of 'bugs' command until CPANPLUS::Backend supports RT's API (http://rt.cpan.org/NoAuth/last10.txt?Queue=dist)
+      - Prepare for non-developer release
 
 COPYRIGHT
-              Copyright (c) 2003 Adam J. Foxson. All rights reserved.
-              Copyright (c) 2003 Casey West. All rights reserved.
+      Copyright (c) 2003 Adam J. Foxson. All rights reserved.
+      Copyright (c) 2003 Casey West. All rights reserved.
 
 LICENSE
-            This program is free software; you may redistribute it and/or
-            modify it under the same terms as Perl itself.
+    This program is free software; you may redistribute it and/or modify it
+    under the same terms as Perl itself.
 
 SEE ALSO
-            * perl
-            * CPANPLUS
-            * POE
-            * POE::Component::IRC
-            * Bot::BasicBot
-            * Net::NNTP
-            * Mail::Internet
-            * Attribute::Handlers
+    * perl
+    * Attribute::Handlers
+    * Bot::BasicBot
+    * CPANPLUS
+    * Digest::MD5
+    * POE
+    * POE::Component::IRC
+    * Net::NNTP
+    * Mail::Internet
 
 AUTHOR
-            Adam J. Foxson <afoxson@pobox.com>, with patches from Casey West
-            <cwest@cpan.org> to support the latest POE versions, Randal
-            Schwartz <merlyn@stonehenge.com> to support NNTP retrieval of
-            CPAN uploads (as opposed to the old way of doing it via mailbox
-            polling), and Rocco Caputo <troc+cpan@pobox.com> that solved
-            early-on blocking issues.
-
-            Many thanks to gilc@#perl@magnet for spending time on
-            #cpan@magnet beta testing.
+    Adam J. Foxson <afoxson@pobox.com>, with patches from Casey West
+    <cwest@cpan.org> to support the latest POE versions, Randal Schwartz
+    <merlyn@stonehenge.com> to support NNTP retrieval of CPAN uploads (as
+    opposed to the old way of doing it via mailbox polling), and Rocco
+    Caputo <troc+cpan@pobox.com> that solved early-on blocking issues.
 

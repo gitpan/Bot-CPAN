@@ -14,5 +14,3 @@ start)
 esac
 
 exit 0
-       
-
