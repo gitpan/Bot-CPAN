@@ -1,20 +1,7 @@
-# $Rev: 73 $
-# $Id: Makefile.PL 73 2003-07-21 10:58:11Z afoxson $
+# $Rev: 76 $
+# $Id: Makefile.PL 76 2003-08-11 01:44:29Z afoxson $
 
 use inc::Module::Install;
-
-if (-d ".svn") { # this is necessary only because we're using subversion
-	require ExtUtils::MakeMaker;
-	if ($ExtUtils::MakeMaker::VERSION < 6.06) {
-		eval q{
-			sub MY::libscan {
-				my $path = $_[1];
-				return '' if $path =~ /\B\.svn\b/;
-				return $path;
-			}
-		};
-	}
-}
 
 name('Bot-CPAN');
 version_from('lib/Bot/CPAN.pm');

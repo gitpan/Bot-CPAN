@@ -1,5 +1,17 @@
 Revision history for Perl extension Bot::CPAN.
 
+0.76  Sun Aug 10 9:42:21 2003
+      - The 'url' command now returns a /dist/ url, instead of an /author/
+        one. This is mainly for the benefit of people that run Bot::CPAN off
+        of 'delayed mirrors', as it will generate a url that refers to the
+        very latest version of any given distribution. If we can't manage to
+        work out the proper /dist/ url, it will return an /author/ one
+      - Added command 'wikiurl' which returns the url to the module's wiki
+        at http://cpan.japh.org/
+      - Added command 'docurl' which returns the url to the module's
+        documentation on search.cpan.org
+      - All of these changes/additions were inspired by Spoon
+
 0.74  Sat Mar 22 23:31:47 2003
       - It's no longer necessary to patch P::C::I for B::C to function. We
         now have a dependency on POE::Component::IRC 2.9 (which now supports

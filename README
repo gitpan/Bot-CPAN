@@ -140,6 +140,9 @@ COMMANDS
     * dlurl
         retrieves the download url of a module
 
+    * docurl
+        retrieves the url of a module's documentation
+
     * help
         provides instruction on how to use this bot
 
@@ -193,6 +196,9 @@ COMMANDS
 
     * whois
         gets an author's name and email from a CPAN ID
+
+    * wikiurl
+        retrieves the url of a module's wiki page
 
 ATTRIBUTES
     * :Admin

@@ -1,5 +1,5 @@
-# $Rev: 74 $
-# $Id: CPAN.pm 74 2003-07-23 00:05:07Z afoxson $
+# $Rev: 76 $
+# $Id: CPAN.pm 76 2003-08-11 01:44:29Z afoxson $
 
 # Bot::CPAN - provides CPAN services via IRC
 # Copyright (c) 2003 Adam J. Foxson. All rights reserved.
@@ -25,7 +25,7 @@ use Bot::CPAN::Glue;
 use vars qw(@ISA $VERSION);
 
 @ISA = qw(Bot::CPAN::Glue);
-($VERSION) = sprintf "%.02f", (('$Rev: 74 $' =~ /\s+(\d+)\s+/)[0] / 100);
+($VERSION) = sprintf "%.02f", (('$Rev: 76 $' =~ /\s+(\d+)\s+/)[0] / 100);
 
 local $^W;
 
@@ -270,6 +270,17 @@ sub distributions :Private(notice) :Fork :LowPrio :Args(required)
 	}
 }
 
+sub docurl :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the url of a module's documentation') {
+	my ($self, $event, $module) = @_;
+	my ($url, $actual) = $self->_check_module($event, 'module_tree', $module);
+	return unless $url;
+
+	my $buffer = "http://search.cpan.org/perldoc?$module";
+
+	$self->_print($event, $buffer);
+}
+
 sub dlurl :Private(notice) :Public(privmsg) :Args(required)
 :Help('retrieves the download url of a module') {
 	my ($self, $event, $module) = @_;
@@ -282,6 +293,36 @@ sub dlurl :Private(notice) :Public(privmsg) :Args(required)
 
 	$buffer .= $path . '/' . $package;
 	$self->_print($event, $buffer);
+}
+
+# from TUCS, coded by gbarr and from acme's CPAN::WWW::Testers
+sub _extract_name_version {
+	my($self, $distvers) = @_;
+
+	my ($dist, $version) = $distvers =~ /^
+		((?:[-+.]*(?:[A-Za-z0-9]+|(?<=\D)_|_(?=\D))*
+		(?:
+		[A-Za-z](?=[^A-Za-z]|$)
+		|
+		\d(?=-)
+		)(?<![._-][vV])
+		)+)(.*)
+	$/xs or return;
+
+	$version = $1
+	if !length $version and $dist =~ s/-(\d+\w)$//;
+
+	$version = $1 . $version
+	if $version =~ /^\d+$/ and $dist =~ s/-(\w+)$//;
+
+	if ($version =~ /\d\.\d/) {
+		$version =~ s/^[-_.]+//;
+	}
+	else {
+		$version =~ s/^[-_]+//;
+	}
+
+	return $dist;
 }
 
 sub _get_details {
@@ -352,18 +393,18 @@ sub modulelist :Private(notice) :Public(privmsg) :Args(required)
 :Help('determines if a given module is in the Module List') {
 	my ($self, $event, $module) = @_;
 	my $cp = $self->get('cp');
-    my $details = $cp->details(modules => [$module]);
+	my $details = $cp->details(modules => [$module]);
 
 	unless ($details->ok) {
 		$self->_print($event, "No such module: $module");
 		return;
 	}
 
-    my $desc = $details->rv->{$module}->{'Description'};
-    my $dev = $details->rv->{$module}->{'Development Stage'};
-    my $interface = $details->rv->{$module}->{'Interface Style'};
-    my $lang = $details->rv->{$module}->{'Language Used'};
-    my $support = $details->rv->{$module}->{'Support Level'};
+	my $desc = $details->rv->{$module}->{'Description'};
+	my $dev = $details->rv->{$module}->{'Development Stage'};
+	my $interface = $details->rv->{$module}->{'Interface Style'};
+	my $lang = $details->rv->{$module}->{'Language Used'};
+	my $support = $details->rv->{$module}->{'Support Level'};
 
 	if ($desc eq 'None given' and $dev eq 'Unknown' and
 		$interface eq 'Unknown' and $lang eq 'Unknown' and
@@ -597,7 +638,7 @@ sub url :Private(notice) :Public(privmsg) :Args(required)
 	my ($url, $actual) = $self->_check_module($event, 'module_tree', $module);
 	return unless $url;
 
-	my $buffer = 'http://search.cpan.org/author/';
+	my $buffer = 'http://search.cpan.org/';
 	my $author  = $url->author();
 	my $package = $url->package();
 
@@ -606,8 +647,16 @@ sub url :Private(notice) :Public(privmsg) :Args(required)
 		return;
 	}
 
-	$buffer .= $author . '/' . $package . '/';
-	$self->_print($event, $buffer);
+	my $dist = $self->_extract_name_version($package);
+
+	if (not $dist) {
+		$buffer .= 'author/' . $author . '/' . $package . '/';
+		$self->_print($event, $buffer);
+	}
+	else {
+		$buffer .= 'dist/' . $dist . '/';
+		$self->_print($event, $buffer);
+	}
 }
 
 sub version :Private(notice) :Public(privmsg) :Args(required)
@@ -636,6 +685,17 @@ sub whois :Private(notice) :Public(privmsg) :Args(required)
 	my $email = $cpanauthor->email || 'no email';
 
 	$self->_print($event, "$name ($email)");
+}
+
+sub wikiurl :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the url of a module's wiki page') {
+	my ($self, $event, $module) = @_;
+	my ($url, $actual) = $self->_check_module($event, 'module_tree', $module);
+	return unless $url;
+
+	my $buffer = "http://cpan.japh.org/?$module";
+
+	$self->_print($event, $buffer);
 }
 
 # special timed event handlers below

@@ -1,5 +1,5 @@
 This file contains message digests of all files listed in MANIFEST,
-signed via the Module::Signature module, version 0.26.
+signed via the Module::Signature module, version 0.24.
 
 To verify the content in this distribution, first make sure you have
 Module::Signature installed, then type:
@@ -14,26 +14,26 @@ not run its Makefile.PL or Build.PL.
 -----BEGIN PGP SIGNED MESSAGE-----
 Hash: SHA1
 
-SHA1 4413fc14771e170eba5e319b8f7fcdb623c4fccd Changes
+SHA1 524bc15d11564552ccc7c2c1d2aca26870cef568 Changes
 SHA1 7bca7c93f730daf62cb7eafb069808efc64a4c10 INSTALL
 SHA1 3295f7f237a9de82b37665fbe5707e1a4c727775 MANIFEST
 SHA1 c2acf6716aa922ce2e5dff5c739c2b208a270f89 MANIFEST.SKIP
 SHA1 cd79ae18bb954aaba7420e89e53c6ed8edccc709 META.yml
-SHA1 4638798dfa500fd619f42cc324187c702d9aea7e Makefile.PL
-SHA1 e09236df30ea93b34a27026cfbe65feaa8d4ea57 README
+SHA1 657e12c47671810faee469fde671cedf3ad25c1d Makefile.PL
+SHA1 aa537b112fcf77f3cc1303cbea05c054ee533f29 README
 SHA1 be1b8cfd692010b930ca072390deee2938ca746b etc/cpanbot.sh
-SHA1 1a537767958697f9fd1a496707793d9a4f592132 inc/ExtUtils/AutoInstall.pm
-SHA1 448c3d55f477a568708ed1f0a52de12d66ca2ba2 inc/Module/Install.pm
+SHA1 24b1fbee33531f78eb4b3f48dddc1c1134a8011c inc/ExtUtils/AutoInstall.pm
+SHA1 5c8819f90b7726a5821647dbb9f8a88e80c130ea inc/Module/Install.pm
 SHA1 75f7e3aeab06fa70f1032142ad717c5351fbb87d inc/Module/Install/AutoInstall.pm
 SHA1 f9b24536c799a3e8e8f011bfc7d7340618e0a679 inc/Module/Install/Base.pm
 SHA1 25a98b3f87ff59247413bebb284ed2c1316c44c7 inc/Module/Install/Can.pm
 SHA1 b5e97ce114738b322214d46b704c512a4fc585a4 inc/Module/Install/Fetch.pm
 SHA1 b6cbcc40bb7d89a9694f13ab29b43e37ed3c9d49 inc/Module/Install/Include.pm
-SHA1 c4ddbad919979f91ce18d2e12d2b6cc7fff903ab inc/Module/Install/Makefile.pm
-SHA1 771996ec76b021f1dbdfe2f6d5b6afa9b5bbef5e inc/Module/Install/Metadata.pm
+SHA1 baf8c73e2914536fe0b110689772561eeb57ed3f inc/Module/Install/Makefile.pm
+SHA1 ea846404276aa17e4511c870aaa0d7ead4182e1e inc/Module/Install/Metadata.pm
 SHA1 5d40574886f14c1b47dcabacba96864d63aa7afc inc/Module/Install/Win32.pm
-SHA1 cb7973f11cb0c31ea60f41a115516747a8a711d7 lib/Bot/CPAN.pm
-SHA1 e95dcf9ca4483341ea6d3f3b3e1a3a546269d831 lib/Bot/CPAN.pod
+SHA1 8c21b835a05aa79f2c7dc51ec11aeefc8d05d20f lib/Bot/CPAN.pm
+SHA1 9ba1e4aa3f9640813892944af505fb8c1692cd83 lib/Bot/CPAN.pod
 SHA1 fc369ad4ab0c482508fb498348ab37e41f53b7d0 lib/Bot/CPAN/BasicBot.pm
 SHA1 c385a5da0d4ef82869bd986071d5a85256f1a64e lib/Bot/CPAN/Glue.pm
 SHA1 677e680b59871a6d1cdaa64a1df2fb6e451988f1 t/0-signature.t
@@ -41,7 +41,7 @@ SHA1 1a229488f09480b5a5c1cd2d0f0ab1594277e9b4 t/bot.t
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.2.2 (Darwin)
 
-iD8DBQE/HdFk5LPoF9AsmmsRAgVWAJ9H6kruoAr2tzFkOe4BplQM4HQIZQCfeNp8
-XfC+Wqa14T0Yan2VTuOy61E=
-=J4DW
+iD8DBQE/NvW+5LPoF9AsmmsRAghyAJ9Wj75oLWi2ULQRVpf9LhOPUBWLDACfWE07
+s3hNTBNWStyYd99jltghy8U=
+=2cB6
 -----END PGP SIGNATURE-----

@@ -1,6 +1,6 @@
 #line 1 "inc/Module/Install/Makefile.pm - /Library/Perl/Module/Install/Makefile.pm"
-# $File: //depot/cpan/Module-Install/lib/Module/Install/Makefile.pm $ $Author: autrijus $
-# $Revision: #45 $ $Change: 1645 $ $DateTime: 2003/07/16 01:05:06 $ vim: expandtab shiftwidth=4
+# $File: //depot/cpan/Module-Install/lib/Module/Install/Makefile.pm $ $Author: ingy $
+# $Revision: #43 $ $Change: 1561 $ $DateTime: 2003/05/28 00:33:11 $ vim: expandtab shiftwidth=4
 
 package Module::Install::Makefile;
 use Module::Install::Base; @ISA = qw(Module::Install::Base);
@@ -37,10 +37,8 @@ sub write {
 
     my $args = $self->makemaker_args;
 
-    $args->{DISTNAME} = $self->name;
-    $args->{NAME} = $self->module_name || $self->name || $self->determine_NAME($args);
-    $args->{VERSION} = $self->version || $self->determine_VERSION($args);
-    $args->{NAME} =~ s/-/::/g;
+    $args->{NAME} = $self->name || $self->determine_NAME($args);
+    $args->{VERSION} = $self->version;
 
     if ($] >= 5.005) {
 	$args->{ABSTRACT} = $self->abstract;
@@ -53,7 +51,7 @@ sub write {
 
     # merge both kinds of requires into prereq_pm
     my $prereq = ($args->{PREREQ_PM} ||= {});
-    %$prereq = ( %$prereq, map { @$_ } map { @$_ } grep $_,
+    %$prereq = ( %$prereq, map { @{@{$_}} } grep $_,
                  ($self->build_requires, $self->requires) );
 
     # merge both kinds of requires into prereq_pm
@@ -110,4 +108,4 @@ sub postamble {
 
 __END__
 
-#line 242
+#line 240

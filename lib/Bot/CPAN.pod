@@ -181,6 +181,10 @@ retrieves all of the distributions by an author
 
 retrieves the download url of a module
 
+=item * B<docurl>
+
+retrieves the url of a module's documentation
+
 =item * B<help>
 
 provides instruction on how to use this bot
@@ -252,6 +256,10 @@ retrieves the latest version of a module
 =item * B<whois>
 
 gets an author's name and email from a CPAN ID
+
+=item * B<wikiurl>
+
+retrieves the url of a module's wiki page
 
 =back
 

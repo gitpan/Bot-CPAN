@@ -309,6 +309,7 @@ sub _install_cpanplus {
 
 	my $success;
 	my $obj = $modtree->{$pkg};
+
 	if ($obj and defined(_version_check($obj->{version}, $ver))) {
 	    my $pathname = $pkg; $pathname =~ s/::/\\W/;
 
@@ -373,6 +374,7 @@ sub _install_cpan {
 
 	my $obj = CPAN::Shell->expand(Module => $pkg);
 	my $success = 0;
+
 	if ($obj and defined(_version_check($obj->cpan_version, $ver))) {
 	    my $pathname = $pkg; $pathname =~ s/::/\\W/;
 
@@ -627,4 +629,4 @@ installdeps ::
 
 __END__
 
-#line 908
+#line 910

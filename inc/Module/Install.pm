@@ -1,9 +1,9 @@
 #line 1 "inc/Module/Install.pm - /Library/Perl/Module/Install.pm"
 # $File: //depot/cpan/Module-Install/lib/Module/Install.pm $ $Author: autrijus $
-# $Revision: #56 $ $Change: 1647 $ $DateTime: 2003/07/16 01:07:55 $ vim: expandtab shiftwidth=4
+# $Revision: #55 $ $Change: 1611 $ $DateTime: 2003/06/15 21:25:43 $ vim: expandtab shiftwidth=4
 
 package Module::Install;
-$VERSION = '0.22';
+$VERSION = '0.21';
 
 die <<END unless defined $INC{'inc/Module/Install.pm'};
 You must invoke Module::Install with:
