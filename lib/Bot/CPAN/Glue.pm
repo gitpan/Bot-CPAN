@@ -1,5 +1,5 @@
-# $Revision: 1.17 $
-# $Id: Glue.pm,v 1.17 2003/03/17 05:48:10 afoxson Exp $
+# $Revision: 1.20 $
+# $Id: Glue.pm,v 1.20 2003/03/23 03:30:30 afoxson Exp $
 
 # Bot::CPAN::Glue - Deep magic for Bot::CPAN
 # Copyright (c) 2003 Adam J. Foxson. All rights reserved.
@@ -29,6 +29,7 @@ use constant PUBLIC_NOTICE   => 1<<4;
 use constant PUBLIC_PRIVMSG  => 1<<5;
 use constant PRIVATE_NOTICE  => 1<<6;
 use constant PRIVATE_PRIVMSG => 1<<7;
+use constant ADMIN_CMD       => 1<<8;
 use constant PERM            => 0;
 use constant HELP            => 1;
 use constant ARG             => 2;
@@ -39,9 +40,10 @@ use Attribute::Handlers autotie => {
 	'__CALLER__::LowPrio' => __PACKAGE__,
 	'__CALLER__::Help'    => __PACKAGE__,
 	'__CALLER__::Args'    => __PACKAGE__,
+	'__CALLER__::Admin'   => __PACKAGE__,
 };
 
-($VERSION) = '$Revision: 1.17 $' =~ /\s+(\d+\.\d+)\s+/;
+($VERSION) = '$Revision: 1.20 $' =~ /\s+(\d+\.\d+)\s+/;
 @ISA       = qw(Bot::CPAN::BasicBot);
 
 local $^W;
@@ -53,6 +55,8 @@ sub _command {
 
 	return unless
 		my ($command, $module_or_author) = $self->_parse_command($message);
+	return unless
+		$self->_verify_auth($message, $command);
 	return unless
 		$self->_verify_usage($message, $command, $module_or_author);
 
@@ -171,6 +175,7 @@ sub new {
 	while (my ($key, $value) = splice @_, 0, 2) {
 		if ($key eq 'news_server' ||
 			$key eq 'group' ||
+			$key eq 'adminhost' ||
 			$key eq 'reload_indices_interval' ||
 			$key eq 'policy' ||
 			$key eq 'search_max_results' ||
@@ -186,6 +191,7 @@ sub new {
 
 	# set up some sane defaults
 	$upstream->set('news_server', 'nntp.perl.org');
+	$upstream->set('adminhost', qr/\b\B/); # default impossible match, Fletch++
 	$upstream->set('search_max_results', 20);
 	$upstream->set('group', 'perl.cpan.testers');
 	$upstream->set('reload_indices_interval', 300);
@@ -379,11 +385,32 @@ sub _verify_usage {
 	return 1;
 }
 
+sub _verify_auth {
+	my ($self, $message, $command) = @_;
+
+	if (defined $commands{$command}[PERM] &&
+		$commands{$command}[PERM] & ADMIN_CMD) {
+		my $adminhost = $self->get('adminhost');
+		if ($message->{userhost} =~ /$adminhost/) {
+			return 1;
+		}
+		else {
+			$self->log("$message->{who} tried to use admin command $command\n");
+			$message->{body} = "'$command' is an admin only command";
+			$self->_return($message);
+			return;
+		}
+	}
+
+	return 1;
+}
+
 # and here are the attribute handlers
 
 sub Fork : ATTR(CODE)    { $commands{*{$_[1]}{NAME}}[PERM] |= FORK }
 sub Help : ATTR(CODE)    { $commands{*{$_[1]}{NAME}}[HELP] = $_[4] }
 sub LowPrio : ATTR(CODE) { $commands{*{$_[1]}{NAME}}[PERM] |= LOW_PRIO }
+sub Admin : ATTR(CODE)   { $commands{*{$_[1]}{NAME}}[PERM] |= ADMIN_CMD }
 sub Args : ATTR(CODE)    { $commands{*{$_[1]}{NAME}}[ARG] = $_[4] }
 
 sub Private : ATTR(CODE) {

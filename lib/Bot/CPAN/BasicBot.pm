@@ -19,7 +19,7 @@ use vars qw(@ISA @EXPORT $VERSION);
 @ISA = qw(Exporter);
 @EXPORT = qw(say emote);
 
-($VERSION) = '$Revision: 1.3 $' =~ /\s+(\d+\.\d+)\s+/;
+($VERSION) = '$Revision: 1.12 $' =~ /\s+(\d+\.\d+)\s+/;
 
 =head1 NAME
 
@@ -33,7 +33,7 @@ Bot::CPAN::BasicBot - simple irc bot baseclass
   # with all known options
   Bot::CPAN::BasicBot->new( channels => ["#bottest"],
 
-                      server => "irc.example.com",
+                      servers => [qw(irc.example.com)],
                       port   => "6667",
 
                       nick      => "basicbot",
@@ -115,7 +115,9 @@ sub run
                                                       irc_ctcp_action => "irc_emoted_state",
 
                                                       irc_disconnected => "irc_disconnected_state",
+                                                      reconnect => "reconnect_state",
                                                       irc_error        => "irc_error_state",
+                                                      irc_socketerr        => "irc_socketerr_state",
 
                                                       fork_close => "fork_close_state",
                                                       fork_error => "fork_error_state"
@@ -298,6 +300,7 @@ sub forkit {
                                               who     => $args->{who},
                                               address => $args->{address},
                                               data => $args->{data},
+                                              userhost => $args->{userhost},
                                              }
                                  };
   return undef;
@@ -470,18 +473,27 @@ cause a disconnect and a reconnect to another server.
 Attributes that accept multiple values always return lists and
 either accept an arrayref or a complete list as an argument.
 
-=item server
+=item servers
 
-The server we're going to connect to.  Defaults to
+The servers we way to connect to. One will be picked randomly. Defaults to
 "london.rhizomatic.net".
 
 =cut
 
-sub server
-{
-  my $this = shift;
-  $this->{server} = shift if @_;
-  return $this->{server} || "london.rhizomatic.net"
+#sub server
+#{
+#  my $this = shift;
+#  $this->{server} = shift if @_;
+#  return $this->{server} || "london.rhizomatic.net"
+#}
+
+sub servers {
+	my $this = shift;
+	if (@_) {
+		my @args = (ref $_[0] eq "ARRAY") ? @{$_[0]} : @_;
+		$this->{servers} = \@args;
+	}
+	@{$this->{servers} || ["london.rhizomatic.net"]}
 }
 
 =item port
@@ -650,16 +662,19 @@ sub start_state {
   # is the easy, indiscriminate way to do it.
   $kernel->post( IRCNAME, 'register', 'all');
 
+  my $server = ($this->servers)[int(rand(scalar $this->servers))];
+  $this->log("Attempting to connect to: $server\n");
+
   # Setting Debug to 1 causes P::C::IRC to print all raw lines of text
   # sent to and received from the IRC server. Very useful for debugging.
   $kernel->post( IRCNAME, 'connect', { Debug    => $this->debug,
                                        Nick     => $this->nick,
-                                       Server   => $this->server,
+                                       Server   => $server,
                                        Port     => $this->port,
                                        Username => $this->username,
                                        Ircname  => $this->name, }
                            );
-  $kernel->delay( 'reconnect', 20);
+  #$kernel->delay( 'reconnect', 20);
 
 }
 
@@ -675,14 +690,17 @@ bot will be far stabler during netsplits and random sever barfs.
 sub reconnect_state {
   my ($this, $kernel, $session) = @_[OBJECT, KERNEL, SESSION];
 
+  my $server = ($this->servers)[int(rand(scalar $this->servers))];
+  $this->log("Attempting to connect to: $server\n");
+
   $kernel->post( IRCNAME, 'connect', { Debug    => $this->debug,
                                        Nick     => $this->nick,
-                                       Server   => $this->server,
+                                       Server   => $server,
                                        Port     => $this->port,
                                        Username => $this->username,
                                        Ircname  => $this->name, }
                            );
-  $kernel->delay( 'reconnect', 20);
+  #$kernel->delay( 'reconnect', 20);
 }
 
 =item stop_state
@@ -732,7 +750,7 @@ sub irc_001_state
 =item irc_disconnected_state
 
 Called if we are disconnected from the server.  Logs the error and
-then dies.
+then reconnects.
 
 =cut
 
@@ -745,7 +763,7 @@ sub irc_disconnected_state
 
 =item irc_error_state
 
-Called if there is an irc server error.  Logs the error and then dies.
+Called if there is an irc server error.  Logs the error and then reconnects.
 
 =cut
 
@@ -754,6 +772,13 @@ sub irc_error_state
   my ($this, $err) = @_[OBJECT, ARG0];
   $this->log("Server error occurred! $err\n");
   die "IRC Error: $err";
+}
+
+sub irc_socketerr_state
+{
+  my ($this, $err) = @_[OBJECT, ARG0];
+  $this->log("Socket error occurred! $err\n");
+  die "Socket Error: $err";
 }
 
 =item irc_kicked_state
@@ -832,6 +857,7 @@ sub irc_received_state {
   my $mess = {};
 
   # work out who it was from
+  $mess->{userhost} = $nick;
   $mess->{who} = $this->nick_strip($nick);
 
   return undef if $this->ignore_nick($mess->{who});
@@ -1042,6 +1068,26 @@ sub set
     unless ($this->{tempstore}{ $storename });
 
   $this->{tempstore}{ $storename }{ $key } = $value;
+}
+
+sub delete
+{
+  my $this      = shift;
+  my $key       = pop;
+  my $storename = pop || "main";
+
+  if ($this->{store})
+  {
+    return $this->{store}->delete($storename,$key)
+  }
+  elsif ($this->{tempstore}{ $storename })
+  {
+    delete $this->{tempstore}{ $storename }{ $key };
+  }
+  else
+  {
+    return undef;
+  }
 }
 
 =item ignore_nick($nick)

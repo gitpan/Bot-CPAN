@@ -1,5 +1,5 @@
-# $Id: Makefile.PL,v 1.3 2003/03/15 09:20:04 afoxson Exp $
-# $Revision: 1.3 $
+# $Id: Makefile.PL,v 1.4 2003/03/23 04:43:15 afoxson Exp $
+# $Revision: 1.4 $
 
 use ExtUtils::MakeMaker;
 
@@ -8,6 +8,8 @@ print "\n" .
 	"This patch adds variable priority messaging, and is needed to prevent the bot\n" .
 	"from blocking when sending a lot of data back to users. The patch file is for\n" .
 	"P::C::I 2.7, and is located in etc/. See POD for details.\n\n";
+
+print "You may safely ignore this message if you've already patched P::C::I 2.7.\n\n";
 
 WriteMakefile(
 	'NAME' => 'Bot::CPAN',

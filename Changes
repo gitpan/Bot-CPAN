@@ -1,5 +1,49 @@
 Revision history for Perl extension Bot::CPAN.
 
+0.01_07-pre  Sat Mar 22 23:31:47 2003
+         - ** Since there has been an API modification and pervasive changes
+           made to this release it is marked as a pre-developer release. It
+           requires wide testing before being promoted to _07. Despite my
+           thorough personal testing, _07-pre should be considered unstable
+           until it reaches _07. Please report any anomalies directly to
+           afoxson@pobox.com, as early as possible.  Thank you. **
+         - API CHANGE: the 'server' constructor option has been changed to
+           'servers', and now requires an arrayref or a list. One of these
+           servers will be picked randomly, everytime the bot needs to connect
+           or reconnect
+         - author is now case insensitive for all author-based commands
+         - improved POD
+         - fixed a little documentation bug; the policy example should have
+           used qr instead of qw
+         - _check_policy no longer /i's all regexes; this should be
+           specifically specified with the qr// defined in the policy
+         - Spoon@#cpan@magnet suggested that commands that take a module for
+           an argument should autocorrect mis-casing; this would mean that
+           someone wanting to, say, get the version of Test::Reporter, could
+           instead specify test::reporter and get an actual version instead of
+           a 'No such module' error message. This feature has been added. It
+           will always first check if there is an exact match, and only then
+           attempt a fuzzy match. If no match, of any type can be made, then
+           it errors out. This works on all commands that accept a module
+           argument
+         - fixed a teeny little memory leak with the 'readme' feature; the leak
+           caused a loss of length-of-nick + 7 bytes per unique person that
+           requested a readme
+         - added 'dlurl' command - retrieves the download url of a module
+         - added 'adminhost' to the constructor - specifies a regular
+           expression that will be matched against userhosts for commands that
+           require administrative access
+         - added the :Admin attribute, which marks a command to be executable
+           by an admin only
+         - internal improvements to CPAN.pm; abstracted out _check_author
+           and _check_module
+         - added more tests
+         - Bot::CPAN will now reconnect if it loses the server connection
+         - Bot::CPAN will now display an informative message if someone
+           attempts to get info on a brand new distribution, that we don't
+           yet have indice data for
+         - admin command 'config' added - shows the bots configuration details
+
 0.01_06  Mon Mar 17 00:56:09 2003
          - improved error handling of NNTP functions
          - comprehensive NNTP logging has been added
