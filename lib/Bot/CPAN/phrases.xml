@@ -8,29 +8,35 @@
 ]>
 <phrasebook>
 	<dictionary name="EN">
+		<phrase name="NO_DISTRIBUTION">
+			No such distribution: $distribution
+		</phrase>
 		<phrase name="NO_MODULE">
 			No such module: $module
-		</phrase>
-		<phrase name="NO_DISTRIBUTION">
-			No such distribution: $module
 		</phrase>
 		<phrase name="NO_AUTHOR">
 			No such author: $author
 		</phrase>
+		<phrase name="UNKNOWN">
+            Unknown
+		</phrase>
+		<phrase name="COMMAND_FAILURE">
+            A command failure occured :(
+		</phrase>
+		<phrase name="Bot::CPAN::status">
+			$requests request$s since I started up at $start_time
+		</phrase>
 		<phrase name="CPANRATINGS_DOWN">
 			cpanratings.perl.org is unavailable
 		</phrase>
-		<phrase name="Bot::CPAN::author">
-			$author
+		<phrase name="Bot::CPAN::dist_ratings(no_ratings)">
+			No ratings for: $module
+		</phrase>
+		<phrase name="Bot::CPAN::dist_ratings(ratings)">
+			Recent ratings: $ratings; Overall (n=$n): mean $mean, median $median, min $min, max $max, stddev $stddev, mode $mode
 		</phrase>
 		<phrase name="Bot::CPAN::botsnack">
-			:)
-		</phrase>
-		<phrase name="Bot::CPAN::_check_module(new)">
-			$module is a brand new distribution. I'll have details shortly.
-		</phrase>
-		<phrase name="Bot::CPAN::_check_module(readme)">
-			No such module (or readme): $module
+            &lt;3
 		</phrase>
 		<phrase name="Bot::CPAN::config(adminhost)">
 			Adminhost: $adminhost
@@ -53,11 +59,17 @@
 		<phrase name="Bot::CPAN::config(inform_channel_of_new_uploads)">
 			Inform Channel of New Uploads Interval: $inform_channel_of_new_uploads
 		</phrase>
+		<phrase name="Bot::CPAN::config(inform_channel_of_new_ratings)">
+			Inform Channel of New Ratings Interval: $inform_channel_of_new_ratings
+		</phrase>
 		<phrase name="Bot::CPAN::config(name)">
 			Name: $name
 		</phrase>
 		<phrase name="Bot::CPAN::config(news_server)">
 			News Server: $news_server
+		</phrase>
+		<phrase name="Bot::CPAN::config(nickserv_password)">
+			Nickserv Password: $nickserv_password
 		</phrase>
 		<phrase name="Bot::CPAN::config(nick)">
 			Nick: $nick
@@ -80,24 +92,6 @@
 		<phrase name="Bot::CPAN::config(last_indice_reload)">
 			Last indice reload: $last_indice_reload
 		</phrase>
-		<phrase name="Bot::CPAN::description">
-			$description
-		</phrase>
-		<phrase name="Bot::CPAN::details">
-			$label: $value
-		</phrase>
-		<phrase name="Bot::CPAN::distributions(no)">
-			Author '$actual_author' has no distributions
-		</phrase>
-		<phrase name="Bot::CPAN::distributions(yes)">
-			$rpt
-		</phrase>
-		<phrase name="Bot::CPAN::docurl">
-			$buffer
-		</phrase>
-		<phrase name="Bot::CPAN::dlurl">
-			$buffer
-		</phrase>
 		<phrase name="Bot::CPAN::help(by)">
 			$nick is brought to you by $pkg version $vers
 		</phrase>
@@ -113,101 +107,122 @@
 		<phrase name="Bot::CPAN::help(help)">
 			$help
 		</phrase>
-		<phrase name="Bot::CPAN::language">
-			$language
-		</phrase>
-		<phrase name="Bot::CPAN::modulelist(no)">
-			No, $module is not in the module list
-		</phrase>
-		<phrase name="Bot::CPAN::modulelist(yes)">
-			Yes, $module is in the module list
-		</phrase>
-		<phrase name="Bot::CPAN::modules(no)">
-			Author ID '$actual_author' has no modules
-		</phrase>
-		<phrase name="Bot::CPAN::modules(yes)">
-			$rpt
-		</phrase>
-		<phrase name="Bot::CPAN::package">
-			$package
-		</phrase>
-		<phrase name="Bot::CPAN::path">
-			$CPAN/authors/id$path
-		</phrase>
-		<phrase name="Bot::CPAN::readme">
-			Sending readme for $actual..
-		</phrase>
 		<phrase name="Bot::CPAN::recent(just_got_here)">
 			I just got here. Give me a bit to get settled. :)
 		</phrase>
 		<phrase name="Bot::CPAN::recent(results)">
 			$results
 		</phrase>
-		<phrase name="Bot::CPAN::ratings(no_ratings)">
-			No ratings for: $module
+		<phrase name="NO_MODULES_IN_DISTRIBUTION">
+            No modules in distribution: $dist
 		</phrase>
-		<phrase name="Bot::CPAN::ratings(ratings)">
-			Recent ratings: $ratings; Overall (n=$n): mean $mean, median $median, min $min, max $max, stddev $stddev, mode $mode
+		<phrase name="NO_CHAPTER_FOR_DISTRIBUTION">
+            No chapter for distribution: $dist
 		</phrase>
-		<phrase name="Bot::CPAN::reviews(no_reviews)">
-			No reviews for: $module
+		<phrase name="NO_RESULTS">
+            No results
 		</phrase>
-		<phrase name="Bot::CPAN::reviews(review)">
-			$creator: $description ($rating)
+		<phrase name="NO_TESTS_FOR_DIST">
+            No tests reported against: $distribution
 		</phrase>
-		<phrase name="Bot::CPAN::rt">
-			Unable to get url for: $actual
+		<phrase name="SEARCH_CPAN_ORG_DOWN">
+			search.cpan.org is unavailable
 		</phrase>
-		<phrase name="Bot::CPAN::rt(success)">
-			$buffer
+		<phrase name="BAD_SEARCH_TERMS">
+            Search term must match [A-Za-z0-9]+
 		</phrase>
-		<phrase name="Bot::CPAN::search(too_many_matches)">
-			Too many matches $matches > $search_max_results. Be more specific please
+		<phrase name="Bot::CPAN::id_dists">
+			$id_dists
 		</phrase>
-		<phrase name="Bot::CPAN::search(no_matches)">
-			No matches
+		<phrase name="Bot::CPAN::dist_tests">
+			$tests
 		</phrase>
-		<phrase name="Bot::CPAN::search(success)">
-			$key
-		</phrase>
-		<phrase name="Bot::CPAN::stage">
+		<phrase name="Bot::CPAN::mod_stage">
 			$stage
 		</phrase>
-		<phrase name="Bot::CPAN::status">
-			$requests request$s since I started up at $start_time
-		</phrase>
-		<phrase name="Bot::CPAN::style">
-			$style
-		</phrase>
-		<phrase name="Bot::CPAN::support">
+		<phrase name="Bot::CPAN::mod_support">
 			$support
 		</phrase>
-		<phrase name="Bot::CPAN::tests(no_tests)">
-			No test reports for: $actual
+		<phrase name="Bot::CPAN::mod_language">
+			$language
 		</phrase>
-		<phrase name="Bot::CPAN::tests(summary)">
-			$tests test report$s for $actual
+		<phrase name="Bot::CPAN::mod_style">
+			$style
 		</phrase>
-		<phrase name="Bot::CPAN::tests(test)">
-			$grade $platform
+		<phrase name="Bot::CPAN::mod_license">
+			$license
 		</phrase>
-		<phrase name="Bot::CPAN::url(unable_to_get_url)">
-			Unable to get url for: $actual
+		<phrase name="Bot::CPAN::top10">
+			$top10
 		</phrase>
-		<phrase name="Bot::CPAN::url(not_dist)">
-			http://search.cpan.org/author/$author/$package/
+		<phrase name="Bot::CPAN::id_name">
+			$name
 		</phrase>
-		<phrase name="Bot::CPAN::url(dist)">
-			http://search.cpan.org/dist/$dist/
+		<phrase name="Bot::CPAN::id_email">
+			$email
 		</phrase>
-		<phrase name="Bot::CPAN::version">
-			$version
+		<phrase name="Bot::CPAN::mod_version">
+            $mod_version
 		</phrase>
-		<phrase name="Bot::CPAN::whois">
-			$name ($email)
+		<phrase name="Bot::CPAN::mod_rturl">
+            $mod_rturl
 		</phrase>
-		<phrase name="Bot::CPAN::wikiurl">
-			http://cpan.japh.org/?$module
+		<phrase name="Bot::CPAN::mod_docurl">
+            $mod_docurl
+		</phrase>
+		<phrase name="Bot::CPAN::mod_dist">
+            $mod_dist
+		</phrase>
+		<phrase name="Bot::CPAN::mod_id">
+            $mod_id
+		</phrase>
+		<phrase name="Bot::CPAN::mod_desc">
+            $mod_desc
+		</phrase>
+		<phrase name="Bot::CPAN::mod_chapter">
+            $mod_chapter
+		</phrase>
+		<phrase name="Bot::CPAN::mod_dslip">
+            $mod_dslip
+		</phrase>
+		<phrase name="Bot::CPAN::mod_search">
+            $mod_search
+		</phrase>
+		<phrase name="Bot::CPAN::dist_version">
+            $dist_version
+		</phrase>
+		<phrase name="Bot::CPAN::dist_dlurl">
+            $dist_dlurl
+		</phrase>
+		<phrase name="Bot::CPAN::dist_path">
+            $dist_path
+		</phrase>
+		<phrase name="Bot::CPAN::dist_filename">
+            $dist_filename
+		</phrase>
+		<phrase name="Bot::CPAN::dist_id">
+            $dist_id
+		</phrase>
+		<phrase name="Bot::CPAN::dist_desc">
+            $dist_desc
+		</phrase>
+		<phrase name="Bot::CPAN::dist_url">
+            $dist_url
+		</phrase>
+		<phrase name="Bot::CPAN::dist_size">
+            $dist_size bytes
+		</phrase>
+		<phrase name="Bot::CPAN::dist_date">
+            $dist_date
+		</phrase>
+		<phrase name="Bot::CPAN::dist_search">
+            $dist_search
+		</phrase>
+		<phrase name="Bot::CPAN::dist_mods">
+            $dist_mods
+		</phrase>
+		<phrase name="Bot::CPAN::dist_chapter">
+            $dist_chapter
 		</phrase>
 	</dictionary>
 </phrasebook>

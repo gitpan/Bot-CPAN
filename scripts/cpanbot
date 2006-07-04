@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 
-# $Revision: 1.4 $
-# $Id: cpanbot,v 1.4 2003/08/28 09:32:31 afoxson Exp $
+# $Revision: 1.1 $
+# $Id: cpanbot,v 1.1 2006/07/04 08:04:06 afoxson Exp $
 #
 # cpanbot - wrapper script for Bot::CPAN
 # Copyright (C) 2003 Adam J. Foxson <afoxson@pobox.com>. All rights reserved.
@@ -37,10 +37,13 @@ my @ignore_list = ref $config->{ignore_list} ?
 my $reload_indices_interval = $config->{reload_indices_interval} || 300;
 my $inform_channel_of_new_uploads =
 	$config->{inform_channel_of_new_uploads} || 60;
+my $inform_channel_of_new_ratings =
+	$config->{inform_channel_of_new_ratings} || 60;
 my $debug = $config->{debug} || 0;
 my $search_max_results = $config->{search_max_results} || 20;
 my $adminhost = $config->{adminhost} || qr/\b\B/;
 my $news_server = $config->{news_server} || 'nntp.perl.org';
+my $nickserv_password = $config->{nickserv_password} || undef;
 my $group = $config->{group} || 'perl.cpan.testers';
 my @policy = ref $config->{policy} ?
 	@{$config->{policy}} : $config->{policy} || ();
@@ -62,10 +65,12 @@ sub get_opts {
 		"ignore_list=s" => \@ignore_list,
 		"reload_indices_interval=i" => \$reload_indices_interval,
 		"inform_channel_of_new_uploads=i" => \$inform_channel_of_new_uploads,
+		"inform_channel_of_new_ratings=i" => \$inform_channel_of_new_ratings,
 		"debug=i" => \$debug,
 		"search_max_results=i" => \$search_max_results,
 		"adminhost=s" => \$adminhost,
 		"news_server=s" => \$news_server,
+		"nickserv_password=s" => \$nickserv_password,
 		"group=s" => \$group,
 		"policy=s" => \@policy,
 	);
@@ -135,9 +140,11 @@ sub start_bot {
 		name => $name,
 		ignore_list => \@ignore_list,
 		news_server => $news_server,
+		nickserv_password => $nickserv_password,
 		group => $group,
 		reload_indices_interval => $reload_indices_interval,
 		inform_channel_of_new_uploads => $inform_channel_of_new_uploads,
+		inform_channel_of_new_ratings => $inform_channel_of_new_ratings,
 		debug => $debug,
 		search_max_results => $search_max_results,
 		policy => $policy,
@@ -188,7 +195,7 @@ cpanbotrc
 
 =head1 VALID OPTIONS
 
-Single value options: port, nick, username, name, reload_indices_interval, inform_channel_of_new_uploads, debug, search_max_results, adminhost, news_server, group
+Single value options: port, nick, username, name, reload_indices_interval, inform_channel_of_new_uploads, inform_channel_of_new_ratings, debug, search_max_results, adminhost, news_server, nickserv_password, group
 
 Multiple value options: channels, servers, alt_nicks, ignore_list
 
@@ -211,10 +218,12 @@ Multiple value options: channels, servers, alt_nicks, ignore_list
  ignore_list shorten
  reload_indices_interval 300
  inform_channel_of_new_uploads 60
+ inform_channel_of_new_ratings 60
  debug 0
  search_max_results 20
  adminhost qr/Fox!~Snak\@12-226-101-175\.client\.attbi\.com/
  news_server nntp.perl.org
+ nickserv_password top_secret_password
  group perl.cpan.testers
  policy #poe allow qr/^POE-/i
  policy #poe deny qr/.+/

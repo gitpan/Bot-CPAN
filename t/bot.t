@@ -1,17 +1,19 @@
 use Test;
-BEGIN { plan tests => 19 };
+BEGIN { plan tests => 21 };
 use Bot::CPAN;
 
 my $bot = Bot::CPAN->new();
 ok(ref $bot, 'Bot::CPAN');
+ok(not defined $bot->get('nickserv_password'));
 ok($bot->get('news_server')  eq 'nntp.perl.org');
 ok($bot->get('group') eq 'perl.cpan.testers');
 ok($bot->get('reload_indices_interval') == 300);
 ok($bot->get('inform_channel_of_new_uploads') == 60);
+ok($bot->get('inform_channel_of_new_ratings') == 60);
 ok($bot->get('search_max_results') == 20);
 ok($bot->debug == 0);
 ok($bot->quit_message eq 'Bye');
-ok(($bot->servers)[0] eq 'london.rhizomatic.net');
+ok(($bot->servers)[0] eq 'irc.perl.org');
 ok($bot->port == 6667);
 ok($bot->nick);
 ok(scalar @{$bot->alt_nicks} == 0);

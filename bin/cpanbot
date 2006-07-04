@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 
-# $Revision: 1.4 $
-# $Id: cpanbot,v 1.4 2003/08/28 09:32:31 afoxson Exp $
+# $Revision: 1.1.1.1 $
+# $Id: cpanbot,v 1.1.1.1 2006/06/29 02:26:31 afoxson Exp $
 #
 # cpanbot - wrapper script for Bot::CPAN
 # Copyright (C) 2003 Adam J. Foxson <afoxson@pobox.com>. All rights reserved.

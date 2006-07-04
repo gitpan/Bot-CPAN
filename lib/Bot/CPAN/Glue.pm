@@ -1,5 +1,5 @@
-# $Revision: 1.4 $
-# $Id: Glue.pm,v 1.4 2003/08/28 09:32:33 afoxson Exp $
+# $Revision: 1.3 $
+# $Id: Glue.pm,v 1.3 2006/07/04 07:19:51 afoxson Exp $
 #
 # Bot::CPAN::Glue - Deep magic for Bot::CPAN
 # Copyright (c) 2003 Adam J. Foxson. All rights reserved.
@@ -16,12 +16,18 @@
 
 package Bot::CPAN::Glue;
 
-require 5.006;
+require 5.008;
 
 use strict;
+use warnings;
 use POE;
 use vars qw(@ISA @EXPORT $VERSION %commands);
 use Bot::CPAN::BasicBot;
+use Error qw(:try);
+use Bot::CPAN::E::NoDist;
+use Bot::CPAN::E::NoAuth;
+use Bot::CPAN::E::NoMod;
+use Bot::CPAN::E::Unknown;
 use Class::Phrasebook;
 use constant NOT_A_COMMAND   => 0;
 use constant PUBLIC_COMMAND  => 1<<0;
@@ -46,10 +52,8 @@ use Attribute::Handlers autotie => {
 	'__CALLER__::Admin'   => __PACKAGE__,
 };
 
-($VERSION) = '$Revision: 1.4 $' =~ /\s+(\d+\.\d+)\s+/;
+($VERSION) = '$Revision: 1.3 $' =~ /\s+(\d+\.\d+)\s+/;
 @ISA = qw(Bot::CPAN::BasicBot);
-
-local $^W;
 
 # this is the command handler, here we are ultimately responsible for
 # accepting or rejecting a command
@@ -67,7 +71,32 @@ sub _command {
 	$message->{data} = $command;
 	$self->log("DEBUG: _command: $command, $module_or_author\n") if
 		$self->debug;
-	$self->_dispatch($message, $module_or_author);
+    try {
+	    $self->_dispatch($message, $module_or_author);
+    }
+    catch Bot::CPAN::E::NoDist with {
+        my $E = shift;
+        $self->_print($message, $self->phrase('NO_DISTRIBUTION', {distribution => $E->{'-text'}}));
+    }
+    catch Bot::CPAN::E::NoMod with {
+        my $E = shift;
+        $self->_print($message, $self->phrase('NO_MODULE', {module => $E->{'-text'}}));
+    }
+    catch Bot::CPAN::E::NoAuth with {
+        my $E = shift;
+        $self->_print($message, $self->phrase('NO_AUTHOR', {author => $E->{'-text'}}));
+    }
+    catch Bot::CPAN::E::Unknown with {
+        $self->_print($message, $self->phrase('UNKNOWN'));
+    }
+    catch Error::Simple with {
+        my $E = shift;
+        my $error = $E->{'-text'};
+        my $file = $E->{'-file'};
+        my $line = $E->{'-line'};
+        $self->log("DEBUG: COMMAND FAILURE: $error at $file line $line.\n");
+        $self->_print($message, $self->phrase('COMMAND_FAILURE'));
+    };
 }
 
 sub _commands {
@@ -90,6 +119,7 @@ sub _dispatch {
 				who => $message->{who},
 				channel => $message->{channel},
 				arguments => [$message, $module_or_author],
+                address => 1,
 				data => $message->{data},
 		});
 	} 
@@ -105,16 +135,16 @@ sub _fork_handler {
 	my ($self, $body, $wheel_id) = @_[0, ARG0, ARG1];
 	chomp $body;
 
-	# this is not particularly endearing, but it has to be done *sigh*
-	# why? if we don't do this here than the requesting user will also be
-	# sent internal CPANPLUS debugging info. this ensures that the user gets
-	# sent only what they ask for
-	my $passthrough_pattern = __PACKAGE__;
-	unless ($body =~ /^$passthrough_pattern:\s/) {
-		$self->log("$body\n");
-		return;
-	}
-	$body =~ s/$passthrough_pattern: //;
+    # this is not particularly endearing, but it has to be done *sigh*
+    # why? if we don't do this here than the requesting user will also be
+    # sent internal package info. this ensures that the user gets
+    # sent only what they ask for
+    my $passthrough_pattern = __PACKAGE__;
+    unless ($body =~ /^$passthrough_pattern:\s/) {
+        $self->log("$body\n");
+        return;
+    }
+    $body =~ s/$passthrough_pattern: //;
 
 	my $args = $self->{forks}->{$wheel_id}->{args};
 
@@ -178,10 +208,12 @@ sub new {
 	while (my ($key, $value) = splice @_, 0, 2) {
 		if ($key eq 'news_server' ||
 			$key eq 'group' ||
+			$key eq 'nickserv_password' ||
 			$key eq 'adminhost' ||
 			$key eq 'reload_indices_interval' ||
 			$key eq 'policy' ||
 			$key eq 'search_max_results' ||
+			$key eq 'inform_channel_of_new_ratings' ||
 			$key eq 'inform_channel_of_new_uploads') {
 				push @my_args, $key, $value;
 		}
@@ -194,11 +226,13 @@ sub new {
 
 	# set up some sane defaults
 	$upstream->set('news_server', 'nntp.perl.org');
+	$upstream->set('nickserv_password', undef);
 	$upstream->set('adminhost', qr/\b\B/); # default impossible match, Fletch++
 	$upstream->set('search_max_results', 20);
 	$upstream->set('group', 'perl.cpan.testers');
 	$upstream->set('reload_indices_interval', 300);
 	$upstream->set('inform_channel_of_new_uploads', 60);
+	$upstream->set('inform_channel_of_new_ratings', 60);
 	$upstream->set('policy', {});
 
 	while (my ($key, $value) = splice @my_args, 0, 2) {
@@ -315,6 +349,8 @@ sub said {
 	return undef unless $message->{address}; 
 
 	$self->_command($message);
+
+    return;
 }
 
 sub _verify_policy {

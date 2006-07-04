@@ -1,12 +1,12 @@
 This file contains message digests of all files listed in MANIFEST,
-signed via the Module::Signature module, version 0.34.
+signed via the Module::Signature module, version 0.54.
 
 To verify the content in this distribution, first make sure you have
 Module::Signature installed, then type:
 
     % cpansign -v
 
-It would check each file's integrity, as well as the signature's
+It will check each file's integrity, as well as the signature's
 validity.  If "==> Signature verified OK! <==" is not displayed,
 the distribution may already have been compromised, and you should
 not run its Makefile.PL or Build.PL.
@@ -15,40 +15,45 @@ not run its Makefile.PL or Build.PL.
 Hash: SHA1
 
 SHA1 5437bea8735b24b309af18486aab60cef159fe6d COPYING
-SHA1 b7fe36271693229443c0070a3d2a215e85ffaccb Changes
-SHA1 9b9f4880287a3627fb44b5340ff836e55eb8619f INSTALL
-SHA1 df523400826ed43ec7a45153871f31faf14c74af MANIFEST
+SHA1 7ae0b9be0bf73e06702fcc4bc99bbdb80e12795c Changes
+SHA1 dc2bbe867a8240340c571893d1af2b42ae296401 INSTALL
+SHA1 012e298e00452f42abd53a3c0bc4d21d46754eb1 MANIFEST
 SHA1 354b73f486efc54248244e8e0b8853717912a1b4 MANIFEST.SKIP
-SHA1 3e3f0ee4bead1aa03c5199e836bcbb1fc500c926 META.yml
-SHA1 c9a49c5b4126536faa0ae79c4b752c9c0867ba9d Makefile.PL
+SHA1 8cf1d00a61f36c1e87dabdea777d20f2a3ba5517 META.yml
+SHA1 6628740809640dc0d1011d7f895f37c7db44893d Makefile.PL
 SHA1 acfb9d963a239c82797323a2030af99267d32ca1 README
-SHA1 4f05efc4e1d123782b18148c2076884b95831773 bin/cpanbot
+SHA1 20b06b36aec9a982569c4920d0e3e3e5fa1f870e bin/cpanbot
 SHA1 193f08c8865cee3a92ab1a6e983552499875964b bin/cpanbotrc
-SHA1 be1b8cfd692010b930ca072390deee2938ca746b etc/cpanbot.sh
-SHA1 eb6b49f98912f084e6449d8a81a2ea8da388c2f0 inc/ExtUtils/AutoInstall.pm
-SHA1 2b6751f9e3f78bfba9ebf348d9d99ddbde9d35e8 inc/Module/Install.pm
-SHA1 b6eb96744a9cabe8e807f453ab27c584c3eda92e inc/Module/Install/AutoInstall.pm
-SHA1 0e59a6491b7275cacf070218c862a42e8135f6d8 inc/Module/Install/Base.pm
-SHA1 a6eff19b88e710df344e3202ff438e41e61482d9 inc/Module/Install/Can.pm
-SHA1 bcee63bdc6667b0827b5461a1e1ad779b207fc23 inc/Module/Install/Fetch.pm
-SHA1 2947a46529e9b64cf5e0291a20332e71edabc546 inc/Module/Install/Include.pm
-SHA1 f042d91d7f691e36c8bcb0b495dfc0b9f92576c3 inc/Module/Install/Makefile.pm
-SHA1 5494a21ff1755b95f0d36c788e4816af0c804645 inc/Module/Install/Metadata.pm
-SHA1 3aa8a441640738a39fdea1c2375d0b10250d8838 inc/Module/Install/Scripts.pm
-SHA1 9b06c41dc4bac2ee819854d44000481166d1500c inc/Module/Install/Win32.pm
-SHA1 4f05efc4e1d123782b18148c2076884b95831773 inc/SCRIPTS/cpanbot
-SHA1 475c4c6c0df552c641ddd0abb1ee05a29178c5c1 lib/Bot/CPAN.pm
-SHA1 6d545a7a83eb642a8c1aa81bfaf8efb2ad7b375d lib/Bot/CPAN.pod
-SHA1 e64433614b09960132f6dfb012ec0d703c57a409 lib/Bot/CPAN/BasicBot.pm
-SHA1 1a7ed07ba63b71501fe7730356210b93121660bf lib/Bot/CPAN/Glue.pm
-SHA1 937060c4e447f54c4f547558b3368407f4081829 lib/Bot/CPAN/phrases.xml
+SHA1 5b52cbdabc56a44e4c0a90a3f5a5609a90d26f84 inc/ExtUtils/AutoInstall.pm
+SHA1 e974f78178f53c88fb7e3f8d20f7df184d13e1d0 inc/Module/AutoInstall.pm
+SHA1 017bedfcba1e0c72b36301e6ef21b8712b84d175 inc/Module/Install.pm
+SHA1 bcfb15c6a158831c45b5100a7aa94e0f88fced9f inc/Module/Install/AutoInstall.pm
+SHA1 b1a70869c098ba602151631386fc510b5bfd3511 inc/Module/Install/Base.pm
+SHA1 dd7313db23119d49ae78593bfa576554fb5b0fd8 inc/Module/Install/Can.pm
+SHA1 7c3a5153a5574556d895f23e121a41e680da11c1 inc/Module/Install/Fetch.pm
+SHA1 2e9c012e58c778a4a83c5eaea20c3aed306ad0c5 inc/Module/Install/Include.pm
+SHA1 176d68fe7c07b6ab7cfe09093078b8127bbde786 inc/Module/Install/Makefile.pm
+SHA1 8b37b38215d14f922b3d5132ce33d11d21d531ba inc/Module/Install/Metadata.pm
+SHA1 7eb44b00058c44795038d7fa4c0c77470f20a7f8 inc/Module/Install/Win32.pm
+SHA1 0667635a4458cbfbb040d36010e80c1fa9d73385 lib/Bot/CPAN.pm
+SHA1 49884d5f8e96f188d9200533adf78ed06f8f658e lib/Bot/CPAN.pod
+SHA1 8e105cc011d84ece5e99a83567b8b511e620aef3 lib/Bot/CPAN/BasicBot.pm
+SHA1 dfea078f847ad43ce4175ce78eaaa967c6b75a68 lib/Bot/CPAN/E/NoAuth.pm
+SHA1 aef4b7e0ca8410b5ee4b4511912503528bbf6e32 lib/Bot/CPAN/E/NoDist.pm
+SHA1 5732f655326b31069f9829f76a49942ec3aeb5d3 lib/Bot/CPAN/E/NoMod.pm
+SHA1 a12b3c9efc9e026f5829a8507aacb60d66872f5b lib/Bot/CPAN/E/Unknown.pm
+SHA1 6838c0f0cedcfbd9330cff1fc124013e4ae34c36 lib/Bot/CPAN/Glue.pm
+SHA1 36767833fcb3d210d653c22768e16932239a5b86 lib/Bot/CPAN/Info.pm
+SHA1 c651ecf6ac8baf6d51f9ef96b074937ffc4a608f lib/Bot/CPAN/phrases.xml
+SHA1 f66563db1a79edbf7e36943bf138e21271de9060 scripts/cpanbot
+SHA1 54e1b2068c1a480a0116bc41cc5fb336d9ad4141 scripts/get_indices.pl
 SHA1 677e680b59871a6d1cdaa64a1df2fb6e451988f1 t/0-signature.t
-SHA1 1a229488f09480b5a5c1cd2d0f0ab1594277e9b4 t/bot.t
-SHA1 41a7cc72c534b40c8ab07ba29e199f0c68d3f2ea t/phrases.t
+SHA1 5b55e2fe4604ae7f4321f42adb4d825ab375cc68 t/bot.t
+SHA1 7b700212d1d1b2b5878b22222d98ba97b2b78dbe t/phrases.t
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.1 (GNU/Linux)
+Version: GnuPG v1.4.4 (GNU/Linux)
 
-iD8DBQE/Tcy85LPoF9AsmmsRAnbeAJ4itisK/HdRudpv+nd+Gs8xTEUAeQCgrbDm
-A65jek+YG0SV6k8vajdt3I0=
-=Zjr+
+iD8DBQFEqvQaACf2iBI1WNwRAsklAJ9isn+GUqsVKDPkThATXFPSEGj9XACcCsks
+yPXrULUEBkLfxJ9f35bWfxs=
+=XGq1
 -----END PGP SIGNATURE-----

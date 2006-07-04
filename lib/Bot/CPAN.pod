@@ -10,17 +10,19 @@ Bot::CPAN - provides CPAN services via IRC
 
   my $bot = Bot::CPAN->new(
       channels => ['#cpan'],
-      servers => ['grou.ch', 'bullfrog.rhizomatic.net'],
+      servers => ['irc.perl.org', 'irc.freenode.net'],
       port => 6667,
       nick => 'cpantest',
       alt_nicks => ['cpantest2', 'cpantest3'],
       username => 'cpantest',
       name => 'cpantest',
+      nickserv_password => 'top_secret_password',
       ignore_list => [qw(purl)],
       news_server => 'nntp.perl.org',
       group => 'perl.cpan.testers',
       reload_indices_interval => 300,
       inform_channel_of_new_uploads => 60,
+      inform_channel_of_new_ratings => 60,
       debug => 0,
       search_max_results => 30,
       adminhost =>
@@ -41,16 +43,15 @@ Bot::CPAN - provides CPAN services via IRC
 Bot::CPAN is a POE based distribution that allows individuals on IRC to query
 the CPAN and other perl resources in a great number of different ways.
 Bot::CPAN will also automatically inform the channels of new uploads to the
-CPAN.
+CPAN, and new ratings of CPAN distributions.
 
 =head1 IRC EXAMPLES
 
-  cpan: version of Test::Reporter
-  cpan: modulelist contains Test::Reporter
-  cpan: tests for Test::Reporter
-  cpan: details on Test::Reporter
-  cpan: path to Test::Reporter
-  cpan: readme from Test::Reporter
+  cpan: recent
+  cpan: top10
+  cpan: id_name for FOX
+  cpan: mod_desc for Test::Reporter
+  cpan: dist_version for Bot-CPAN
 
 =head1 METHODS
 
@@ -63,7 +64,8 @@ Bot::CPAN::BasicBot. It will accept named parameters for: channels, servers,
 port, nick, alt_nicks, username, name, ignore_list, store, and log. Bot::CPAN
 extends the Bot::CPAN::BasicBot constructor to accept the following named
 parameters: news_server, group, reload_indices_interval,
-inform_channel_of_new_uploads, debug, search_max_results, policy and adminhost.
+inform_channel_of_new_uploads, inform_channel_of_new_ratings, debug,
+search_max_results, nickserv_password, policy and adminhost.
 
 =item * B<run>
 
@@ -110,9 +112,17 @@ upload emails are sent.
 
 Number of seconds between checks for new CPAN uploads.
 
+=item * B<inform_channel_of_new_ratings>
+
+Number of seconds between checks for new CPAN ratings.
+
 =item * B<name>
 
 The name that the bot will identify itself as.
+
+=item * B<nickserv_password>
+
+Password for IRC networks that use NICKSERV.
 
 =item * B<news_server>
 
@@ -136,7 +146,7 @@ Number of seconds between reloading of CPAN indices.
 
 =item * B<search_max_results>
 
-Maximum numer of results to return via the 'search' command.
+Maximum numer of results to return via the 'search' command. (semi-deprecated)
 
 =item * B<servers>
 
@@ -153,121 +163,157 @@ The username we'll claim to have at our ip/domain.
 
 =over 4
 
-=item * B<author>
-
-retrieves the author of a module
-
 =item * B<botsnack>
 
 gives the bot a snack
 
 =item * B<config>
 
-shows the bots configuration details
-
-=item * B<description>
-
-retrieves the description of a module
-
-=item * B<details>
-
-retrieves full details of a module
-
-=item * B<distributions>
-
-retrieves all of the distributions by an author
-
-=item * B<dlurl>
-
-retrieves the download url of a module
-
-=item * B<docurl>
-
-retrieves the url of a module's documentation
+Shows the bot's configuration (admin only)
 
 =item * B<help>
 
 provides instruction on how to use this bot
 
-=item * B<language>
+=item * B<proxy>
 
-retrieves the language of a module
-
-=item * B<modulelist>
-
-determines if a given module is in the Module List
-
-=item * B<modules>
-
-retrieves the modules created by a given author
-
-=item * B<package>
-
-retrieves the package of a module
-
-=item * B<path>
-
-retrieves the full CPAN path of a module
-
-=item * B<readme>
-
-sends README for module via DCC CHAT
+proxies an emote (admin only)
 
 =item * B<recent>
 
 shows last ten distributions uploaded to the CPAN
 
-=item * B<ratings>
-
-retrives ratings of a distribution
-
-=item * B<reviews>
-
-retrives reviews of a distribution
-
-=item * B<rt>
-
-retrieves the RT www path to a module
-
-=item * B<search>
-
-returns modules that match a regex
-
-=item * B<stage>
-
-retrieves the stage of a module
-
 =item * B<status>
 
 retrieves the status of the bot
 
-=item * B<style>
+=item * B<top10>
 
-retrieves the style of a module
+top 10 contributors to CPAN
 
-=item * B<support>
+=item * B<id_dists>
+
+shows all distributions of an author
+
+=item * B<id_email>
+
+retrieves an email from a PAUSE ID
+
+=item * B<id_name>
+
+retrieves a name from a PAUSE ID
+
+=item * B<mod_chapter>
+
+retrieves the chapter of a module
+
+=item * B<mod_desc>
+
+retrieves the description of a module
+
+=item * B<mod_dist>
+
+retrieves the distribution of a module
+
+=item * B<mod_docurl>
+
+retrieves the documentation URL of a module
+
+=item * B<mod_dslip>
+
+retrieves the DSLIP of a module
+
+=item * B<mod_id>
+
+retrieves the PAUSE ID of a module
+
+=item * B<mod_language>
+
+retrieves the language of a module
+
+=item * B<mod_license>
+
+retrieves the license of a module
+
+=item * B<mod_rturl>
+
+retrieves the RT URL of a module
+
+=item * B<mod_stage>
+
+retrieves the stage of a module
+
+=item * B<mod_search>
+
+search for a module
+
+=item * B<mod_support>
 
 retrieves the support level of a module
 
-=item * B<tests>
+=item * B<mod_style>
 
-retrieves the test results of a module
+retrieves the style of a module
 
-=item * B<url>
+=item * B<mod_version>
 
-retrieves the www path to a module
+retrieves the version of a module
 
-=item * B<version>
+=item * B<dist_chapter>
 
-retrieves the latest version of a module
+lists the chapter of a distribution
 
-=item * B<whois>
+=item * B<dist_date>
 
-gets an author's name and email from a CPAN ID
+retrieves the release date of a distribution
 
-=item * B<wikiurl>
+=item * B<dist_desc>
 
-retrieves the url of a module's wiki page
+retrieves description of a distribution
+
+=item * B<dist_dlurl>
+
+retrieves the download URL of a distribution
+
+=item * B<dist_filename>
+
+retrieves the filename of a distribution
+
+=item * B<dist_id>
+
+retrieves PAUSE ID of a distribution
+
+=item * B<dist_mods>
+
+lists all modules in a distribution
+
+=item * B<dist_path>
+
+retrieves the path to a distribution
+
+=item * B<dist_ratings>
+
+retrives ratings of a distribution
+
+=item * B<dist_search>
+
+earch for a distribution
+
+=item * B<dist_size>
+
+retrieves the size of a distribution
+
+=item * B<dist_tests>
+
+shows tests results for a distribution
+
+=item * B<dist_url>
+
+retrieves URL of a distribution
+
+=item * B<dist_version>
+
+retrieves the version of a distribution
 
 =back
 
@@ -381,8 +427,9 @@ got the popular vote.
 
 =head1 CAVEATS
 
-If you expect the bot to have very recent CPAN data, be sure that CPANPLUS is
-set to get indexes directly from ftp.funet.fi.
+If you expect the bot to have very recent CPAN data, be sure that reindexing is
+set to get indexes directly from ftp.funet.fi. Even then, those indices
+are only updated on the funet end about once an hour or so.
 
 Bot::CPAN::BasicBot's alt_nicks doesn't do what you think. It's NOT for
 specifying alternate nicks to use for connecting to IRC if the one you chose
@@ -393,13 +440,19 @@ bundling of Bot::BasicBot.
 =head1 BUGS
 
 If you happen to find one please email me at afoxson@pobox.com. Thank you.
+Or, better yet, report it on RT.
 
 =head1 TODO
 
-  - Defer adding 'bugs' command until CPANPLUS::Backend supports RT's API
-  - Add support for "pacing" (suggested by Spoon) i.e., if several uploads
+  - Add support for "throttling" (suggested by Spoon) i.e., if several uploads
     occur at the same time, pace the reporting of such to a pre-determined
     number of upload notification per minute
+  - Consider re-adding 'modulelist'
+  - Consider re-adding 'details'
+  - Consider re-supporting search_max_results
+  - Improve 'recent' so it has a full recent list on connect
+  - Improve memory profile
+  - Investigate forking reindexing and checking for new uploads/ratings
 
 =head1 COPYRIGHT
 
@@ -424,29 +477,13 @@ details.
 
 =item * L<perl>
 
-=item * L<Attribute::Handlers>
-
-=item * L<Bot::BasicBot>
-
-=item * L<Config::Auto>
-
-=item * L<CPANPLUS>
-
-=item * L<Encode>
-
-=item * L<Getopt::Long>
-
 =item * L<HTTP::Request>
 
+=item * L<XML::Parser>
+
+=item * L<URI>
+
 =item * L<LWP::UserAgent>
-
-=item * L<Module::CPANTS>
-
-=item * L<Module::Signature>
-
-=item * L<POE>
-
-=item * L<POE::Component::IRC>
 
 =item * L<Mail::Internet>
 
@@ -454,13 +491,37 @@ details.
 
 =item * L<Net::NNTP>
 
+=item * L<POE>
+
 =item * L<Statistics::Descriptive>
 
-=item * L<URI>
-
-=item * L<XML::Parser>
-
 =item * L<XML::RSS::Parser>
+
+=item * L<POE::Component::IRC>
+
+=item * L<Text::Wrap>
+
+=item * L<Error>
+
+=item * L<Class::Phrasebook>
+
+=item * L<Attribute::Handlers>
+
+=item * L<Storable>
+
+=item * L<CPAN::DistnameInfo>
+
+=item * L<Compress::Zlib>
+
+=item * L<File::Listing>
+
+=item * L<Sort::Versions>
+
+=item * L<Encode>
+
+=item * L<Config::Auto>
+
+=item * L<Getopt::Long>
 
 =back
 

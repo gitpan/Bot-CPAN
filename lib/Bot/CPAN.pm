@@ -1,8 +1,8 @@
-# $Revision: 1.7 $
-# $Id: CPAN.pm,v 1.7 2003/08/28 09:32:32 afoxson Exp $
+# $Revision: 1.10 $
+# $Id: CPAN.pm,v 1.10 2006/07/04 23:02:46 afoxson Exp $
 #
 # Bot::CPAN - provides CPAN services via IRC
-# Copyright (c) 2003 Adam J. Foxson. All rights reserved.
+# Copyright (c) 2006 Adam J. Foxson. All rights reserved.
 # Copyright (c) 2003 Casey West. All rights reserved.
 
 # This program is free software; you can redistribute it and/or modify it under
@@ -17,12 +17,12 @@
 
 package Bot::CPAN;
 
-require 5.006;
+require 5.008;
 
 use strict;
+use warnings;
 use vars qw(@ISA $VERSION);
-use Bot::CPAN::Glue;
-use CPANPLUS::Backend;
+use base qw(Bot::CPAN::Glue);
 use LWP::UserAgent;
 use Mail::Internet;
 use Math::Round;
@@ -31,11 +31,211 @@ use POE;
 use Statistics::Descriptive;
 use URI;
 use XML::RSS::Parser;
+use Storable;
 
 @ISA = qw(Bot::CPAN::Glue);
-($VERSION) = '$Revision: 1.7 $' =~ /\s+(\d+\.\d+)\s+/;
+($VERSION) = '$Revision: 1.10 $' =~ /\s+(\d+\.\d+)\s+/;
 
-local $^W;
+sub dist_existance_check {
+    my ($obj, $dist) = @_;
+    return if exists $obj->{dists}->{$dist};
+    throw Bot::CPAN::E::NoDist($dist);
+}
+
+sub auth_existance_check {
+    my ($obj, $id) = @_;
+    return if exists $obj->{auths}->{$id};
+    throw Bot::CPAN::E::NoAuth($id);
+}
+
+sub mod_existance_check {
+    my ($obj, $mod) = @_;
+    return if exists $obj->{mods}->{$mod};
+    throw Bot::CPAN::E::NoMod($mod);
+}
+
+sub unknown {
+    throw Bot::CPAN::E::Unknown();
+}
+
+sub status :Private(notice) :Public(privmsg) :Args(refuse)
+:Help('retrieves the status of the bot') {
+	my ($self, $event) = @_;
+	my $requests = $self->get('requests');
+
+	$self->_print($event, $self->phrase(
+		{requests => $requests, s => $requests == 1 ? '' : 's',
+		start_time => scalar localtime($^T)}));
+
+    return;
+}
+
+# Unfortunately, until the cpanratings.perl.org people add ratings support
+# into the RSS feed we'll have to screen-scrape
+sub dist_ratings :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrives ratings of a distribution') {
+	my ($self, $event, $module) = @_;
+
+	if (!eval{require Socket; Socket::inet_aton('cpanratings.perl.org')}) {
+		$self->_print($event, $self->phrase('CPANRATINGS_DOWN'));
+		return;
+	}
+    my $obj = $self->get('cp');
+    dist_existance_check $obj => $module;
+    my $dist = $module;
+	my $data = $self->_get_cpanratings('ratings', $dist);
+
+	unless ($data->is_success) {
+		$self->_print($event, $self->phrase('NO_DISTRIBUTION', {distribution => $module}));
+		return;
+	}
+
+	my @data = split /\n/, $data->as_string;
+	my @ratings;
+
+	for my $rating (@data) {
+		if ($rating =~ m!<img src="/images/stars-(\d.\d).png"!) {
+			push @ratings, $1;
+		}
+	}
+
+	if (scalar @ratings == 0) {
+		$self->_print($event, $self->phrase('no_ratings', {module => $module}));
+		return;
+	}
+
+	my $stat = Statistics::Descriptive::Full->new();
+	$stat->add_data(@ratings);
+
+	my $mean = sprintf "%.1f", $stat->mean();
+	my $median = sprintf "%.1f", $stat->median();
+	my $min = sprintf "%.1f", $stat->min();
+	my $max = sprintf "%.1f", $stat->max();
+	my $stddev = sprintf "%.1f", $stat->standard_deviation();
+	my $mode = sprintf "%.1f", $stat->mode();
+
+	my $ratings = scalar @ratings;
+	@ratings = reverse @ratings;
+	@ratings = splice @ratings, 0, 5;
+	my $last5 = join ', ', @ratings;
+
+	$self->_print($event, $self->phrase('ratings',
+		{ratings => $last5, n => $ratings, mean => $mean, median => $median,
+		min => $min, max => $max, stddev => $stddev, mode => $mode}));
+
+    return;
+}
+
+sub botsnack :Public(privmsg) :Args(refuse)
+:Help('gives the bot a snack') {
+	my ($self, $event) = @_;
+	$self->_print($event, $self->phrase());
+    #return;
+}
+
+sub config :Private(notice) :Args(refuse) :Admin :LowPrio
+:Help('Shows the bot\'s configuration') {
+	my ($self, $event) = @_;
+
+	$self->_print($event, $self->phrase('adminhost',
+		{adminhost => $self->get('adminhost')}));
+	$self->_print($event, $self->phrase('alt_nicks',
+		{alt_nicks => join ', ', $self->alt_nicks})) if
+			scalar $self->alt_nicks > 0;
+	$self->_print($event, $self->phrase('channels',
+		{channels => join ', ', $self->channels}));
+	$self->_print($event, $self->phrase('ignore_list',
+		{ignore_list=> join ', ', $self->ignore_list})) if
+			scalar $self->ignore_list > 0;
+	$self->_print($event, $self->phrase('debug',
+		{debug => $self->debug}));
+	$self->_print($event, $self->phrase('group',
+		{group => $self->get('group')}));
+	$self->_print($event, $self->phrase('inform_channel_of_new_uploads',
+		{inform_channel_of_new_uploads =>
+			$self->get('inform_channel_of_new_uploads')}));
+	$self->_print($event, $self->phrase('inform_channel_of_new_ratings',
+		{inform_channel_of_new_ratings =>
+			$self->get('inform_channel_of_new_ratings')}));
+	$self->_print($event, $self->phrase('name',
+		{name => $self->name}));
+	$self->_print($event, $self->phrase('news_server',
+		{news_server => $self->get('news_server')}));
+	$self->_print($event, $self->phrase('nickserv_password',
+		{nickserv_password => $self->get('nickserv_password')}));
+	$self->_print($event, $self->phrase('nick',
+		{nick => $self->nick}));
+	$self->_print($event, $self->phrase('port',
+		{port => $self->port}));
+	$self->_print($event, $self->phrase('reload_indices_interval',
+		{reload_indices_interval => $self->get('reload_indices_interval')}));
+	$self->_print($event, $self->phrase('search_max_results',
+		{search_max_results => $self->get('search_max_results')}));
+	$self->_print($event, $self->phrase('servers',
+		{servers => join ', ', $self->servers}));
+	$self->_print($event, $self->phrase('username',
+		{username => $self->username}));
+	$self->_print($event, $self->phrase('last_indice_reload',
+		{last_indice_reload => $self->get('last_indice_reload')}));
+
+    return;
+}
+
+sub help :Private(notice) :LowPrio :Args(optional)
+:Help('provides instruction on how to use this bot') {
+	my ($self, $event, $command) = @_;
+	my (@public_and_private, @public, @private);
+
+	unless ($command) {
+		$self->_print($event, $self->phrase('by',
+			{nick => $self->nick(), pkg => __PACKAGE__, vers => $VERSION}));
+
+		for my $command (sort $self->_commands()) {
+			if ($self->_private_command($command) &&
+				$self->_public_command($command)) {
+					push @public_and_private, $command;
+			}
+			elsif ($self->_private_command($command)) {
+				push @private, $command;
+			}
+			elsif ($self->_public_command($command)) {
+				push @public, $command;
+			}
+		}
+
+		$self->_print($event, $self->phrase('both',
+			{commands => (join ', ', @public_and_private)})) if
+				scalar @public_and_private > 0;
+		$self->_print($event, $self->phrase('channel',
+			{commands => (join ', ', @public)})) if
+				scalar @public > 0;
+		$self->_print($event, $self->phrase('msg',
+			{commands => (join ', ', @private)})) if scalar @private > 0;
+	}
+	else {
+		$self->_print($event,
+			$self->phrase('help', {help => $self->_help($command)}));
+	}
+
+    return;
+}
+
+sub recent :Private(notice) :Public(privmsg) :Args(refuse)
+:Help('shows last ten distributions uploaded to the CPAN') {
+	my ($self, $event) = @_;
+	my @recent = @{$self->get('recent')};
+
+	if (scalar @recent < 1) {
+		$self->_print($event, $self->phrase('just_got_here'));
+		return;
+	}
+
+	@recent = reverse @recent;
+	my $recent = join ', ', @recent;
+	$self->_print($event, $self->phrase('results', {results => $recent}));
+
+    return;
+}
 
 sub _add_to_recent {
 	my ($self, $dist) = @_;
@@ -45,99 +245,6 @@ sub _add_to_recent {
 	push @recent, $dist;
 
 	$self->set('recent', \@recent);
-}
-
-sub author :Private(notice) :Public(privmsg) :Args(required)
-:Help('retrieves the author of a module') {
-	my ($self, $event, $module) = @_;
-	my $author = $self->_get_details($event, $module, 'Author');
-
-	return unless $author;
-
-	$self->_print($event, $self->phrase({author => $author}));
-}
-
-sub botsnack :Public(privmsg) :Args(refuse)
-:Help('gives the bot a snack') {
-	my ($self, $event) = @_;
-	$self->_print($event, $self->phrase());
-}
-
-sub _check_author {
-	my ($self, $author) = @_;
-	my $cp = $self->get('cp');
-
-	$author = uc $author;
-
-	return unless defined $cp->author_tree->{$author};
-	return $author;
-}
-
-sub _check_module {
-	my ($self, $event, $type, $module) = @_;
-	my $cp = $self->get('cp');
-	my $rv;
-
-	$rv = $self->_check_module_match($type, $module);
-
-	return ($rv, $module, 1) if $rv;
-
-	my $search = $cp->search(type => 'module', list => [qr/^$module$/i]);
-	my @cache;
-
-	for my $key (keys %{$search}) {
-		push @cache, $key;
-	}
-
-	if (scalar @cache == 1) {
-		$rv = $self->_check_module_match($type, $cache[0]);
-		return ($rv, $cache[0], 2) if $rv;
-	}
-
-	my @recent = @{$self->get('recent')};
-	for my $recent (@recent) {
-		$recent =~ s/-/::/g;
-		$recent =~ s/::\d.+//g;
-
-		if ($recent eq $module) {
-			$self->_print($event, $self->phrase('new', {module => $module}));
-			return;
-		}
-	}
-
-	$type eq 'readme' ?
-		$self->_print($event, $self->phrase('readme', {module => $module})) :
-		$self->_print($event, $self->phrase('NO_MODULE', {module => $module}));
-	return;
-}
-
-sub _check_module_match {
-	my ($self, $type, $module) = @_;
-	my $cp = $self->get('cp');
-	my $rv;
-
-	if ($type eq 'details') {
-		$rv = $cp->details(modules => [$module]);
-		return $rv if $rv->ok;
-	}
-	elsif ($type eq 'module_tree') {
-		$rv = $cp->module_tree->{$module};
-		return $rv if defined $rv;
-	}
-	elsif ($type eq 'pathname') {
-		$rv = $cp->pathname(to => $module);
-		return $rv if $rv;
-	}
-	elsif ($type eq 'readme') {
-		$rv = $cp->readme(modules => [$module]);
-		return $rv if $rv->ok;
-	}
-	elsif ($type eq 'reports') {
-		$rv = $cp->reports(modules => [$module]);
-		return $rv if defined $rv->rv;
-	}   
-
-	return;
 }
 
 sub _check_policy {
@@ -173,163 +280,36 @@ sub _check_policy {
 	return 1;
 }
 
-sub config :Private(notice) :Args(refuse) :Admin :LowPrio
-:Help('Shows the bots configuration') {
-	my ($self, $event) = @_;
-
-	$self->_print($event, $self->phrase('adminhost',
-		{adminhost => $self->get('adminhost')}));
-	$self->_print($event, $self->phrase('alt_nicks',
-		{alt_nicks => join ', ', $self->alt_nicks})) if
-			scalar $self->alt_nicks > 0;
-	$self->_print($event, $self->phrase('channels',
-		{channels => join ', ', $self->channels}));
-	$self->_print($event, $self->phrase('ignore_list',
-		{ignore_list=> join ', ', $self->ignore_list})) if
-			scalar $self->ignore_list > 0;
-	$self->_print($event, $self->phrase('debug',
-		{debug => $self->debug}));
-	$self->_print($event, $self->phrase('group',
-		{group => $self->get('group')}));
-	$self->_print($event, $self->phrase('inform_channel_of_new_uploads',
-		{inform_channel_of_new_uploads =>
-			$self->get('inform_channel_of_new_uploads')}));
-	$self->_print($event, $self->phrase('name',
-		{name => $self->name}));
-	$self->_print($event, $self->phrase('news_server',
-		{news_server => $self->get('news_server')}));
-	$self->_print($event, $self->phrase('nick',
-		{nick => $self->nick}));
-	$self->_print($event, $self->phrase('port',
-		{port => $self->port}));
-	$self->_print($event, $self->phrase('reload_indices_interval',
-		{reload_indices_interval => $self->get('reload_indices_interval')}));
-	$self->_print($event, $self->phrase('search_max_results',
-		{search_max_results => $self->get('search_max_results')}));
-	$self->_print($event, $self->phrase('servers',
-		{servers => join ', ', $self->servers}));
-	$self->_print($event, $self->phrase('username',
-		{username => $self->username}));
-	$self->_print($event, $self->phrase('last_indice_reload',
-		{last_indice_reload => $self->get('last_indice_reload')}));
-}
-
 # this is called the moment we successfully connect to a server
 sub connected {
 	my $self = shift;
-	my $cp = CPANPLUS::Backend->new() unless $self->get('cp');
+
+    if ($self->get('nickserv_password')) {
+        $poe_kernel->post($self->{IRCNAME}, 'privmsg', 'nickserv', "IDENTIFY ${\($self->get('nickserv_password'))}");
+    }
+
+    my $cp = retrieve('/home/afoxson/.cpanbot/index') unless $self->get('cp');
 
 	$self->set('cp', $cp) unless $self->get('cp');
 	$self->set('requests', 0) unless $self->get('requests');
-	$self->set('recent', []) unless $self->get('recent') and
-		ref $self->get('recent') eq 'ARRAY';
+	$self->set('recent', []) unless $self->get('recent') and ref $self->get('recent') eq 'ARRAY';
 
 	my $nntp = Net::NNTP->new($self->get('news_server')) or
 		die "Cannot open NNTP server: $!";
 	my ($articles) = ($nntp->group($self->get('group')))[0] or
 		die "Cannot go to group: $!";
 	$self->set('articles', $articles + 1);
+	$self->set('ratings', undef);
 
-	$poe_kernel->state('irc_dcc_start', $self);
 	$poe_kernel->state('_reload_indices', $self);
 	$poe_kernel->state('_inform_channel_of_new_uploads', $self);
+	$poe_kernel->state('_inform_channel_of_new_ratings', $self);
 	$poe_kernel->delay('reconnect');
 	$poe_kernel->delay_add('_reload_indices', 0);
 	$poe_kernel->delay_add('_inform_channel_of_new_uploads',
 		$self->get('inform_channel_of_new_uploads'));
-}
-
-sub description :Private(notice) :Public(privmsg) :Args(required)
-:Help('retrieves the description of a module') {
-	my ($self, $event, $module) = @_;
-
-	if (eval{require Module::CPANTS}) {
-		my $package = $self->_get_details($event, $module, 'Package');
-		return unless $package;
-		my $c = Module::CPANTS->new();
-		my $cpants = $c->data;
-		my $data = $cpants->{$package};
-		my $desc = $data->{'description'};
-		if ($desc) {
-			$self->_print($event, $self->phrase({description => $desc}));
-			return;
-		}
-	}
-
-	my $description = $self->_get_details($event, $module, 'Description');
-
-	return unless $description;
-
-	$self->_print($event, $self->phrase({description => $description}));
-}
-
-sub details :Private(notice) :Fork :LowPrio :Args(required)
-:Help('retrieves full details of a module') {
-	my ($self, $event, $module) = @_;
-	my ($details, $actual) = $self->_check_module($event, 'details', $module);
-	return unless $details;
-
-	for my $bit (   
-		'Author', 'Description', 'Development Stage', 'Interface Style',
-		'Language Used', 'Package', 'Support Level', 'Version on CPAN',
-	)
-	{   
-		next if $details->rv->{$actual}->{$bit} =~ /^Unknown|None given$/;
-		$self->_print($event,
-			$self->phrase({label => $bit, value => $details->rv->{$actual}->{$bit}}));
-	}
-}
-
-sub distributions :Private(notice) :Fork :LowPrio :Args(required)
-:Help('retrieves all of the distributions by an author') {
-	my ($self, $event, $author) = @_;
-	my $cp = $self->get('cp');
-	my $actual_author = $self->_check_author($author);
-
-	unless ($actual_author) {
-		$self->_print($event, $self->phrase('NO_AUTHOR', {author => $author}));
-		return;
-	}
-
-	my $distributions = $cp->distributions(authors => [$actual_author]);
-
-	unless ($distributions->rv) {
-		$self->_print($event, $self->phrase('no', {actual_author => $actual_author}));
-		return;
-	}
-
-	for my $rpt (keys %{$distributions->rv->{$actual_author}})
-	{
-		$rpt =~ s/\.tar\.gz$//;
-		$rpt =~ s/\.tgz$//;
-		$rpt =~ s/\.zip$//;
-		$self->_print($event, $self->phrase('yes', {rpt => "$rpt"}));
-	}
-}
-
-sub docurl :Private(notice) :Public(privmsg) :Args(required)
-:Help('retrieves the url of a module's documentation') {
-	my ($self, $event, $module) = @_;
-	my ($url, $actual) = $self->_check_module($event, 'module_tree', $module);
-	return unless $url;
-
-	my $buffer = "http://search.cpan.org/perldoc?$module";
-
-	$self->_print($event, $self->phrase({buffer => $buffer}));
-}
-
-sub dlurl :Private(notice) :Public(privmsg) :Args(required)
-:Help('retrieves the download url of a module') {
-	my ($self, $event, $module) = @_;
-	my ($details) = $self->_check_module($event, 'module_tree', $module);
-	return unless $details;
-
-	my $path = $details->path;
-	my $package = $details->package;
-	my $buffer = 'http://search.cpan.org/CPAN/authors/id/';
-
-	$buffer .= $path . '/' . $package;
-	$self->_print($event, $self->phrase({buffer => $buffer}));
+	$poe_kernel->delay_add('_inform_channel_of_new_ratings',
+		$self->get('inform_channel_of_new_ratings'));
 }
 
 # from TUCS, coded by gbarr and from acme's CPAN::WWW::Testers
@@ -369,11 +349,8 @@ sub _get_cpanratings {
 	my $ua = LWP::UserAgent->new(agent => "Bot::CPAN/$VERSION");
 	my $place;
 
-	if ($type eq 'reviews') {
-		$place = "http://cpanratings.perl.org/d/$module.rss";
-	}
-	elsif ($type eq 'ratings') {
-		$place = "http://cpanratings.perl.org/d/$module";
+	if ($type eq 'ratings') {
+		$place = "http://cpanratings.perl.org/dist/$module";
 	}
 
 	my $url = URI->new($place);
@@ -381,26 +358,6 @@ sub _get_cpanratings {
 	my $data = $ua->request($req);
 
 	return $data;
-}
-
-sub _get_details {
-	my ($self, $event, $module, $type) = @_;
-	my ($details, $actual, $rv) =
-		$self->_check_module($event, 'details', $module);
-	return unless $details;
-
-	if ($rv == 1) {
-		return $details->rv->{$actual}->{$type};
-	}
-	elsif ($rv == 2) {
-		my $type_string = $type;
-		$type_string = lc $type_string;
-		$type_string =~ s/cpan/CPAN/;
-
-		(substr $actual, -1, 1) =~ /^s$/i ?
-			return "${actual}' $type_string is: ${\($details->rv->{$actual}->{$type})}" :
-			return "${actual}'s $type_string is: ${\($details->rv->{$actual}->{$type})}";
-	}
 }
 
 sub _get_karma {
@@ -416,7 +373,7 @@ sub _get_karma {
 			my @ratings;
 
 			for my $rating (@data) {
-				if ($rating =~ m!<img src="/images/stars-(\d.\d).png">!) {
+				if ($rating =~ m!<img src="/images/stars-(\d.\d).png"!) {
 					push @ratings, $1;
 				}
 			}
@@ -445,133 +402,11 @@ sub _get_karma {
 	return $ratestr;
 }
 
-sub help :Private(notice) :LowPrio :Args(optional)
-:Help('provides instruction on how to use this bot') {
-	my ($self, $event, $command) = @_;
-	my (@public_and_private, @public, @private);
-
-	unless ($command) {
-		$self->_print($event, $self->phrase('by',
-			{nick => $self->nick(), pkg => __PACKAGE__, vers => $VERSION}));
-
-		for my $command (sort $self->_commands()) {
-			if ($self->_private_command($command) &&
-				$self->_public_command($command)) {
-					push @public_and_private, $command;
-			}
-			elsif ($self->_private_command($command)) {
-				push @private, $command;
-			}
-			elsif ($self->_public_command($command)) {
-				push @public, $command;
-			}
-		}
-
-		$self->_print($event, $self->phrase('both',
-			{commands => (join ', ', @public_and_private)})) if
-				scalar @public_and_private > 0;
-		$self->_print($event, $self->phrase('channel',
-			{commands => (join ', ', @public)})) if
-				scalar @public > 0;
-		$self->_print($event, $self->phrase('msg',
-			{commands => (join ', ', @private)})) if scalar @private > 0;
-	}
-	else {
-		$self->_print($event,
-			$self->phrase('help', {help => $self->_help($command)}));
-	}
-}
-
-sub language :Private(notice) :Public(privmsg) :Args(required)
-:Help('retrieves the language of a module') {
-	my ($self, $event, $module) = @_;
-	my $language = $self->_get_details($event, $module, 'Language Used');
-
-	return unless $language;
-
-	$self->_print($event, $self->phrase({language => $language}));
-}
-
-sub _module_to_dist {
-	my $self = shift;
-	my $module = shift;
-	my $cp = $self->get('cp');
-	my $mod = $cp->module_tree->{$module} || return $module;
-	my $pkg = $mod->package;
-
-	unless ($pkg =~ s/\.tgz$|\.tar\.gz$|\.zip$//) {
-		return $module;
-	}
-
-	return $pkg;
-}
-
-sub modulelist :Private(notice) :Public(privmsg) :Args(required)
-:Help('determines if a given module is in the Module List') {
-	my ($self, $event, $module) = @_;
-	my $cp = $self->get('cp');
-	my $details = $cp->details(modules => [$module]);
-
-	unless ($details->ok) {
-		$self->_print($event, $self->phrase('NO_MODULE', {module => $module}));
-		return;
-	}
-
-	my $desc = $details->rv->{$module}->{'Description'};
-	my $dev = $details->rv->{$module}->{'Development Stage'};
-	my $interface = $details->rv->{$module}->{'Interface Style'};
-	my $lang = $details->rv->{$module}->{'Language Used'};
-	my $support = $details->rv->{$module}->{'Support Level'};
-
-	if ($desc eq 'None given' and $dev eq 'Unknown' and
-		$interface eq 'Unknown' and $lang eq 'Unknown' and
-		$support eq 'Unknown') {
-		$self->_print($event, $self->phrase('no', {module => $module}));
-	}
-	else {
-		$self->_print($event, $self->phrase('yes', {module => $module}));
-	}
-}
-
-sub modules :Private(notice) :Fork :LowPrio :Args(required)
-:Help('retrieves the modules created by a given author') {
-	my ($self, $event, $author) = @_;
-	my $cp = $self->get('cp');
-	my $actual_author = $self->_check_author($author);
-
-	unless ($actual_author) {
-		$self->_print($event, $self->phrase('NO_AUTHOR', {author => $author}));
-		return;
-	}
-
-	my $modules = $cp->modules(authors => [$actual_author]);
-
-	unless ($modules->rv) {
-		$self->_print($event, $self->phrase('no', {actual_author => $actual_author}));
-		return;
-	}
-
-	for my $rpt (keys %{$modules->rv->{$actual_author}})
-	{   
-		$self->_print($event, $self->phrase('yes', {rpt => "$rpt"}));
-	}
-}
-
-sub package :Private(notice) :Public(privmsg) :Args(required)
-:Help('retrieves the package of a module') {
-	my ($self, $event, $module) = @_;
-	my $package = $self->_get_details($event, $module, 'Package');
-
-	return unless $package;
-
-	$self->_print($event, $self->phrase({package => $package}));
-}
-
 sub _parse_article {
 	my ($self, $mail) = @_;
 	my $body = join '', @{$mail->body()};
 
-	return 1 unless $body =~
+	unless ($body =~
 	m/
 		^ The\ (?:URL | uploaded\ file) \s* $ \n
 		^ $ \n
@@ -584,18 +419,22 @@ sub _parse_article {
 		^ \s* md5: \s (.+) \s* $ \n
 		^ $ \n
 		^ No\ action\ is\ required\ on\ your\ part \s* $ \n
-		^ Request\ entered\ by: \s (.+) \s \( .* \) \s* $ \n
+		^ Request\ entered\ by: \s ([A-Z]{3,9}) \s \( .* \) \s* $ \n
 		^ Request\ entered\ on: \s (.+) \s* $ \n
 		^ Request\ completed: \s (.+) \s* $ \n
 		^ $ \n
 		^ .+ $ \n
 		^ .+ $
-	/mx;
+	/mx) {
+        return 1;
+    }
 
 	$mail->{_cpan_file}       = $2;
 	$mail->{_cpan_entered_by} = $5;
 
-	return 2 unless $mail->{_cpan_file} =~ /\.tgz$|\.tar\.gz$|\.zip$/;
+	unless ($mail->{_cpan_file} =~ /\.tgz$|\.tar\.gz$|\.zip$/) {
+        return 2;
+    }
 
 	($mail->{_cpan_short}) = $mail->{_cpan_file} =~
 		/^.+\/(.+)(?:\.tar\.gz$|\.tgz$|\.zip$)/;
@@ -618,326 +457,6 @@ sub _parse_article {
 	}
 
 	return;
-}
-
-sub path :Private(notice) :Public(privmsg) :Args(required)
-:Help('retrieves the full CPAN path of a module') {
-	my ($self, $event, $module) = @_;
-	my ($path) = $self->_check_module($event, 'pathname', $module);
-	return unless $path;
-
-	$self->_print($event, $self->phrase({CPAN => '$CPAN', path => $path}));
-}
-
-sub readme :Public(privmsg) :Private(notice) :Args(required)
-:Help('sends readme for module via DCC CHAT') {
-	my ($self, $event, $module) = @_;
-	my ($readme, $actual) = $self->_check_module($event, 'readme', $module);
-	return unless $readme;
-
-	my $who = $event->{who};
-
-	$self->set("readme_$who", $actual);
-	$self->_print($event, $self->phrase({actual => $actual}));
-	$self->dcc($who, 'CHAT');
-}
-
-sub recent :Private(notice) :Public(privmsg) :Args(refuse)
-:Help('shows last ten distributions uploaded to the CPAN') {
-	my ($self, $event) = @_;
-	my @recent = @{$self->get('recent')};
-
-	if (scalar @recent < 1) {
-		$self->_print($event, $self->phrase('just_got_here'));
-		return;
-	}
-
-	@recent = reverse @recent;
-	my $recent = join ', ', @recent;
-	$self->_print($event, $self->phrase('results', {results => $recent}));
-}
-
-# Unfortunately, until the cpanratings.perl.org people add ratings support
-# into the RSS feed we'll have to screen-scrape
-sub ratings :Private(notice) :Public(privmsg) :Args(required)
-:Help('retrives ratings of a distribution') {
-	my ($self, $event, $module) = @_;
-
-	if (!eval{require Socket; Socket::inet_aton('cpanratings.perl.org')}) {
-		$self->_print($event, $self->phrase('CPANRATINGS_DOWN'));
-		return;
-	}
-
-	my $package = $self->_module_to_dist($module);
-	my $dist = $self->_extract_name_version($package);
-	my $data = $self->_get_cpanratings('ratings', $dist);
-
-	unless ($data->is_success) {
-		$self->_print($event, $self->phrase('NO_DISTRIBUTION',
-			{module => $module}));
-		return;
-	}
-
-	my @data = split /\n/, $data->as_string;
-	my @ratings;
-
-	for my $rating (@data) {
-		if ($rating =~ m!<img src="/images/stars-(\d.\d).png">!) {
-			push @ratings, $1;
-		}
-	}
-
-	if (scalar @ratings == 0) {
-		$self->_print($event, $self->phrase('no_ratings', {module => $module}));
-		return;
-	}
-
-	my $stat = Statistics::Descriptive::Full->new();
-	$stat->add_data(@ratings);
-
-	my $mean = sprintf "%.1f", $stat->mean();
-	my $median = sprintf "%.1f", $stat->median();
-	my $min = sprintf "%.1f", $stat->min();
-	my $max = sprintf "%.1f", $stat->max();
-	my $stddev = sprintf "%.1f", $stat->standard_deviation();
-	my $mode = sprintf "%.1f", $stat->mode();
-
-	my $ratings = scalar @ratings;
-	@ratings = reverse @ratings;
-	@ratings = splice @ratings, 0, 5;
-	my $last5 = join ', ', @ratings;
-
-	$self->_print($event, $self->phrase('ratings',
-		{ratings => $last5, n => $ratings, mean => $mean, median => $median,
-		min => $min, max => $max, stddev => $stddev, mode => $mode}));
-}
-
-sub _ratings_for_reviews {
-	my $self = shift;
-	my $module = shift;
-	my $data = $self->_get_cpanratings('ratings', $module);
-	my @data = split /\n/, $data->as_string;
-	my @ratings;
-
-	for my $rating (@data) {
-		if ($rating =~ m!<img src="/images/stars-(\d.\d).png">!) {
-			push @ratings, $1;
-		}
-	}
-
-	return \@ratings;
-}
-
-sub reviews :Private(notice) :Fork :LowPrio :Args(required)
-:Help('retrives reviews of a distribution') {
-	my ($self, $event, $module) = @_;
-
-	if (!eval{require Socket; Socket::inet_aton('cpanratings.perl.org')}) {
-		$self->_print($event, $self->phrase('CPANRATINGS_DOWN'));
-		return;
-	}
-
-	my $package = $self->_module_to_dist($module);
-	my $dist = $self->_extract_name_version($package);
-	my $data = $self->_get_cpanratings('reviews', $dist);
-	my $items;
-	my $p = new XML::RSS::Parser;
-
-	unless (eval {$p->parse($data->content)}) {
-		$self->_print($event, $self->phrase('NO_DISTRIBUTION',
-			{module => $module}));
-		return;
-	}
-
-	unless ($items = $p->items) {
-		$self->_print($event, $self->phrase('no_reviews', {module => $module}));
-		return;
-	}
-
-	my @r2r = @{$self->_ratings_for_reviews($dist)};
-	my $encode = eval{require Encode; import Encode 'decode_utf8'};
-	my $count = 0;
-
-	for my $item (@{$items}) {
-		my $creator = $item->{'http://purl.org/dc/elements/1.1/creator'};
-		my $description = $item->{'http://purl.org/rss/1.0/description'};
-
-		if ($encode) {
-			$creator = decode_utf8($creator);
-			$description = decode_utf8($description);
-		}
-
-		$self->_print($event, $self->phrase('review', {creator => $creator, description => $description, rating => $r2r[$count]}));
-		$count++;
-	}
-}
-
-sub rt :Private(notice) :Public(privmsg) :Args(required)
-:Help('retrieves the RT www path to a module') {
-	my ($self, $event, $module) = @_;
-	my ($url, $actual) = $self->_check_module($event, 'module_tree', $module);
-	return unless $url;
-
-	my $buffer = 'http://rt.cpan.org/NoAuth/Bugs.html?Dist=';
-	my $package = $url->package();
-
-	unless ($package =~ s/\.tgz$|\.tar\.gz$|\.zip$//) {
-		$self->_print($event, $self->phrase({actual => $actual}));
-		return;
-	}
-
-	$buffer .= $package;
-	$self->_print($event, $self->phrase('success', {buffer => $buffer}));
-}
-
-sub search :Private(notice) :Args(required) :LowPrio
-:Help('returns modules that match a regex') {
-	my ($self, $event, $module) = @_;
-	my $cp = $self->get('cp');
-	my $mod_search = $cp->search(type => 'module', list => [$module]);
-	my @cache = ();
-
-	for my $key (keys %{$mod_search}) {
-		push @cache, $key;
-	}
-
-	if (scalar @cache > $self->get('search_max_results')) {
-		$self->_print($event, $self->phrase('too_many_matches',
-			{matches => scalar @cache,
-			search_max_results => $self->get('search_max_results')}));
-	}
-	elsif (scalar @cache == 0) {
-		$self->_print($event, $self->phrase('no_matches'));
-	}
-	else {
-		for my $key (sort @cache) {
-			$self->_print($event, $self->phrase('success', {key => $key}));
-		}
-	}
-}
-
-sub stage :Private(notice) :Public(privmsg) :Args(required)
-:Help('retrieves the stage of a module') {
-	my ($self, $event, $module) = @_;
-	my $stage = $self->_get_details($event, $module, 'Development Stage');
-
-	return unless $stage;
-
-	$self->_print($event, $self->phrase({stage => $stage}));
-}
-
-sub status :Private(notice) :Public(privmsg) :Args(refuse)
-:Help('retrieves the status of the bot') {
-	my ($self, $event) = @_;
-	my $requests = $self->get('requests');
-
-	$self->_print($event, $self->phrase(
-		{requests => $requests, s => $requests == 1 ? '' : 's',
-		start_time => scalar localtime($^T)}));
-}
-
-sub style :Private(notice) :Public(privmsg) :Args(required)
-:Help('retrieves the style of a module') {
-	my ($self, $event, $module) = @_;
-	my $style = $self->_get_details($event, $module, 'Interface Style');
-
-	return unless $style;
-
-	$self->_print($event, $self->phrase({style => $style}));
-}
-
-sub support :Private(notice) :Public(privmsg) :Args(required)
-:Help('retrieves the support level of a module') {
-	my ($self, $event, $module) = @_;
-	my $support = $self->_get_details($event, $module, 'Support Level');
-
-	return unless $support;
-
-	$self->_print($event, $self->phrase({support => $support}));
-}
-
-sub tests :Private(notice) :Fork :LowPrio :Args(required)
-:Help('retrieves the test reports of a module') {
-	my ($self, $event, $module) = @_;
-	my ($report, $actual) = $self->_check_module($event, 'reports', $module);
-	return unless $report;
-
-	unless ($report->rv->{$actual}) {
-		$self->_print($event, $self->phrase('no_tests', {actual => $actual}));
-	}
-	else {
-		$self->_print($event, $self->phrase('summary',
-			{tests => scalar @{$report->rv->{$actual}},
-			s => @{$report->rv->{$actual}} == 1 ? '' : 's',
-			actual => $actual}));
-
-		for my $rpt (@{$report->rv->{$actual}}) {
-			$self->_print($event, $self->phrase('test', {grade => $rpt->{grade}, platform => $rpt->{platform}}));
-		}
-	}
-}
-
-sub url :Private(notice) :Public(privmsg) :Args(required)
-:Help('retrieves the www path to a module') {
-	my ($self, $event, $module) = @_;
-	my ($url, $actual) = $self->_check_module($event, 'module_tree', $module);
-	return unless $url;
-
-	my $author  = $url->author();
-	my $package = $url->package();
-
-	unless ($package =~ s/\.tgz$|\.tar\.gz$|\.zip$//) {
-		$self->_print($event, $self->phrase('unable_to_get_url',
-			{actual => $actual}));
-		return;
-	}
-
-	my $dist = $self->_extract_name_version($package);
-
-	unless ($dist) {
-		$self->_print($event, $self->phrase('not_dist',
-			{author => $author, package => $package}));
-	}
-	else {
-		$self->_print($event, $self->phrase('dist', {dist => $dist}));
-	}
-}
-
-sub version :Private(notice) :Public(privmsg) :Args(required)
-:Help('retrieves the latest version of a module') {
-	my ($self, $event, $module) = @_;
-	my $version = $self->_get_details($event, $module, 'Version on CPAN');
-
-	return unless $version;
-
-	$self->_print($event, $self->phrase({version => $version}));
-}
-
-sub whois :Private(notice) :Public(privmsg) :Args(required)
-:Help('gets an author's name and email from a CPAN ID') {
-	my ($self, $event, $author) = @_;
-	my $cp = $self->get('cp');
-	my $actual_author = $self->_check_author($author);
-
-	unless ($actual_author) {
-		$self->_print($event, $self->phrase('NO_AUTHOR', {author => $author}));
-		return;
-	}
-
-	my $cpanauthor = $cp->author_tree->{$actual_author};
-	my $name = $cpanauthor->name;
-	my $email = $cpanauthor->email || 'no email';
-
-	$self->_print($event, $self->phrase({name => $name, email => $email}));
-}
-
-sub wikiurl :Private(notice) :Public(privmsg) :Args(required)
-:Help('retrieves the url of a module's wiki page') {
-	my ($self, $event, $module) = @_;
-	my ($url, $actual) = $self->_check_module($event, 'module_tree', $module);
-	return unless $url;
-
-	$self->_print($event, $self->phrase({module => $module}));
 }
 
 # special timed event handlers below
@@ -984,35 +503,60 @@ sub _inform_channel_of_new_uploads {
 		$self->get('inform_channel_of_new_uploads'));
 }
 
-sub irc_dcc_start
-{
-	my ($self, $magic, $who, $type) = @_[OBJECT, ARG0, ARG1, ARG2];
+sub _inform_channel_of_new_ratings {
+	my $self = $_[OBJECT];
+    my $p = XML::RSS::Parser->new();
+    my $feed = $p->parse_uri('http://cpanratings.perl.org/index.rss');
+    my $report = 1;
 
-	unless ($type =~ /CHAT/i) {
-		$self->log("Got an invalid DCC request from $who\n");
-		return;
-	}
+    $self->log("Starting rating ID=${\($self->get('ratings') ? $self->get('ratings') : 'undef')}\n");
 
-	my $cp = $self->get('cp');
-	my $module = $self->get("readme_$who");
+    $report = 0 unless $self->get('ratings');
 
-	unless ($module) {
-		$self->log("$who requested a DCC CHAT, but I've no matching readme\n");
-		return;
-	}
+    # output some values
+    for my $review ( reverse $feed->query('//item') ) {
+        my $title = $review->query('title')->text_content;
+        my $link = $review->query('link')->text_content;
+        my $description = $review->query('description')->text_content;
+        my $creator = $review->query('dc:creator')->text_content;
+        my ($id) = $link =~ m!.+\#(\d+)!;
 
-	my $readme = $cp->readme(modules => [$module]);
-	my $length = length($readme->rv->{$module});
+        if ($self->get('ratings')) {
+            next if $id <= $self->get('ratings');
+        }
 
-	$self->log("Sending $who readme for $module ($length)\n");
-	$self->delete("readme_$who");
-	$self->dcc_chat($magic, $readme->rv->{$module});
+        next unless $description =~ /\n/;
+
+        my ($rating) = (split /\n/, $description)[0];
+        $rating =~ s/Rating:\s//;
+        $rating =~ s/1\sstars/1 star/;
+
+        next unless $rating =~ /stars?/;
+
+        $self->set('ratings', $id);
+        my $inform = "$title rated $rating by $creator";
+    	my $chan_inform = "rating: $inform";
+
+        if ($report) {
+	        for my $channel ($self->channels()) {
+                $self->emote({channel => $channel, body => $chan_inform}) if
+                    $self->_check_policy($channel, $inform);
+            }
+        }
+    }
+
+    $self->log("Ending rating ID=${\($self->get('ratings'))}\n");
+
+	$poe_kernel->delay_add('_inform_channel_of_new_ratings',
+		$self->get('inform_channel_of_new_ratings'));
 }
 
 sub _reload_indices {
 	my $self = $_[OBJECT];
-	my $cp = $self->get('cp');
-	$cp->reload_indices(update_source => 1);
+    $self->log("Getting indices...\n");
+	$self->set('cp', undef);
+    my $cp = retrieve('/home/afoxson/.cpanbot/index');
+	$self->set('cp', $cp);
 	$self->set('last_indice_reload', scalar localtime);
 	$poe_kernel->delay_add('_reload_indices',
 		$self->get('reload_indices_interval'));
@@ -1023,6 +567,7 @@ sub irc_disconnected_state {
 	$this->log("Lost connection to server $server.\n");
 	$poe_kernel->delay('_reload_indices' => undef);
 	$poe_kernel->delay('_inform_channel_of_new_uploads' => undef);
+	$poe_kernel->delay('_inform_channel_of_new_ratings' => undef);
 	$poe_kernel->delay('reconnect' => 60);
 }
 
@@ -1031,6 +576,7 @@ sub irc_error_state {
 	$this->log("Server error occurred! $err\n");
 	$poe_kernel->delay('_reload_indices' => undef);
 	$poe_kernel->delay('_inform_channel_of_new_uploads' => undef);
+	$poe_kernel->delay('_inform_channel_of_new_ratings' => undef);
 	$poe_kernel->delay('reconnect' => 60);
 }
 
@@ -1039,7 +585,515 @@ sub irc_socketerr_state {
 	$this->log("Socket error occurred: $err\n");
 	$poe_kernel->delay('_reload_indices' => undef);
 	$poe_kernel->delay('_inform_channel_of_new_uploads' => undef);
+	$poe_kernel->delay('_inform_channel_of_new_ratings' => undef);
 	$poe_kernel->delay('reconnect' => 60);
+}
+
+# Just.. don't.. ask..
+sub proxy :Private(notice) :Args(required) :Admin
+:Help('proxies an emote') {
+	my ($self, $event, $spec) = @_;
+    my ($channel, $emote) = split /\|/, $spec;
+    $emote =~ s/_/ /g;
+    $self->emote({channel => $channel, body => $emote});
+}
+
+sub modlist_catid2desc {
+	my $id = shift;
+
+	if ($id == 2) { return "($id) Perl Core Modules, Perl Language Extensions and Documentation Tools" }
+	elsif ($id == 3) { return "($id) Development Support" }
+	elsif ($id == 4) { return "($id) Operating System Interfaces, Hardware Drivers" }
+	elsif ($id == 5) { return "($id) Networking, Device Control (modems) and InterProcess Communication" }
+	elsif ($id == 6) { return "($id) Data Types and Data Type Utilities" }
+	elsif ($id == 7) { return "($id) Database Interfaces" }
+	elsif ($id == 8) { return "($id) User Interfaces (Character and Graphical)" }
+	elsif ($id == 9) { return "($id) Interfaces to or Emulations of Other Programming Languages" }
+	elsif ($id == 10) { return "($id) File Names, File Systems and File Locking" }
+	elsif ($id == 11) { return "($id) String Processing, Language Text Processing, Parsing and Searching" }
+	elsif ($id == 12) { return "($id) Option, Argument, Parameter and Configuration File Processing" }
+	elsif ($id == 13) { return "($id) Internationalization and Locale" }
+	elsif ($id == 14) { return "($id) Authentication, Security and Encryption" }
+	elsif ($id == 15) { return "($id) World Wide Web, HTML, HTTP, CGI, MIME etc" }
+	elsif ($id == 16) { return "($id) Server and Daemon Utilities" }
+	elsif ($id == 17) { return "($id) Archiving, Compression and Conversion" }
+	elsif ($id == 18) { return "($id) Images, Pixmap and Bitmap Manipulation, Drawing and Graphing" }
+	elsif ($id == 19) { return "($id) Mail and Usenet News" }
+	elsif ($id == 20) { return "($id) Control Flow Utilities (callbacks and exceptions etc)" }
+	elsif ($id == 21) { return "($id) File Handle, Directory Handle and Input/Output Stream Utilities" }
+	elsif ($id == 22) { return "($id) Microsoft Windows Modules" }
+	elsif ($id == 23) { return "($id) Miscellaneous Modules" }
+	elsif ($id == 24) { return "($id) Interface Modules to Commercial Software" }
+	elsif ($id == 25) { return "($id) Bundles" }
+	else { return "($id) Unknown" }
+}
+
+sub id_dists :Private(notice) :Args(required) :Fork :LowPrio
+:Help('shows all distributions of an author') {
+	my ($self, $event, $id) = @_;
+    my $obj = $self->get('cp');
+    auth_existance_check $obj => $id;
+
+	my %ids;
+	for my $dist (keys %{$obj->{dists}}) {
+		push @{$ids{$obj->{dists}->{$dist}->{cpanid}}}, $dist;
+	}
+
+    if (exists $ids{$id}) {
+        while (my @dists = splice @{$ids{$id}}, 0, 15) {
+            $self->_print($event, $self->phrase({id_dists => join ', ', @dists}));
+        }
+    }
+    else {
+        $self->_print($event, $self->phrase({id_dists => 'None!?'}));
+    }
+}
+
+sub dist_tests :Private(notice) :Public(privmsg) :Args(required)
+:Help('shows tests results for a distribution') {
+	my ($self, $event, $dist) = @_;
+    my $obj = $self->get('cp');
+    dist_existance_check $obj => $dist;
+	if (not defined $obj->{dists}->{$dist}->{cpanid}) {
+		$self->_print($event, $self->phrase('UNKNOWN'));
+        return;
+    }
+	if (!eval{require Socket; Socket::inet_aton('search.cpan.org')}) {
+		$self->_print($event, $self->phrase('SEARCH_CPAN_ORG_DOWN'));
+		return;
+	}
+	my $id = $obj->{dists}->{$dist}->{cpanid};
+    my $ua = LWP::UserAgent->new(agent => "Bot::CPAN/$VERSION");
+    my $place = "http://search.cpan.org/~$id/$dist/";
+    my $url = URI->new($place);
+    my $req = HTTP::Request->new(GET => $url);
+    my $data = $ua->request($req);
+
+    if ($data->is_success) {
+        my @buffer;
+        my ($pass) = $data->as_string =~ m/PASS\s\((\d+)\)/;
+        my ($fail) = $data->as_string =~ m/FAIL\s\((\d+)\)/;
+        my ($na) = $data->as_string =~ m/NA\s\((\d+)\)/;
+        my ($unknown) = $data->as_string =~ m/UNKNOWN\s\((\d+)\)/;
+
+        push @buffer, "PASS ($pass)" if defined $pass;
+        push @buffer, "FAIL ($fail)" if defined $fail;
+        push @buffer, "NA ($na)" if defined $na;
+        push @buffer, "UNKNOWN ($unknown)" if defined $unknown;
+
+        if (scalar @buffer > 0) {
+	        $self->_print($event, $self->phrase({tests => join ' ', @buffer}));
+            return;
+        }
+        else {
+		    $self->_print($event, $self->phrase('NO_TESTS_FOR_DIST', {distribution => $dist}));
+            return;
+        }
+    }
+    else {
+		$self->_print($event, $self->phrase('SEARCH_CPAN_ORG_DOWN'));
+        return;
+    }
+}
+
+sub mod_stage :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the stage of a module') {
+	my ($self, $event, $mod) = @_;
+    my $obj = $self->get('cp');
+    mod_existance_check $obj => $mod;
+	unknown unless defined $obj->{mods}->{$mod}->{dslip};
+	my $character = substr $obj->{mods}->{$mod}->{dslip}, 0, 1;
+	unknown unless defined $character and $character;
+	if ($character eq 'i') { $self->_print($event, $self->phrase({stage => 'Idea'})) }
+	elsif ($character eq 'c') { $self->_print($event, $self->phrase({stage => 'Under construction'})) }
+    elsif ($character eq 'a') { $self->_print($event, $self->phrase({stage => 'Alpha'})) }
+    elsif ($character eq 'b') { $self->_print($event, $self->phrase({stage => 'Beta'})) }
+    elsif ($character eq 'R') { $self->_print($event, $self->phrase({stage => 'Released'})) }
+    elsif ($character eq 'M') { $self->_print($event, $self->phrase({stage => 'Mature'})) }
+    elsif ($character eq 'S') { $self->_print($event, $self->phrase({stage => 'Standard'})) }
+	else { unknown }
+}
+
+sub mod_support :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the support level of a module') {
+	my ($self, $event, $mod) = @_;
+    my $obj = $self->get('cp');
+    mod_existance_check $obj => $mod;
+	unknown unless defined $obj->{mods}->{$mod}->{dslip};
+	my $character = substr $obj->{mods}->{$mod}->{dslip}, 1, 1;
+	unknown unless defined $character and $character;
+    if ($character eq 'm') { $self->_print($event, $self->phrase({support => 'Mailing-list'})) }
+    elsif ($character eq 'd') { $self->_print($event, $self->phrase({support => 'Developer'})) }
+    elsif ($character eq 'u') { $self->_print($event, $self->phrase({support => 'Usenet newsgroup'})) }
+    elsif ($character eq 'n') { $self->_print($event, $self->phrase({support => 'None known'})) }
+	else { unknown }
+}
+
+sub mod_language :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the language of a module') {
+	my ($self, $event, $mod) = @_;
+    my $obj = $self->get('cp');
+    mod_existance_check $obj => $mod;
+	unknown unless defined $obj->{mods}->{$mod}->{dslip};
+	my $character = substr $obj->{mods}->{$mod}->{dslip}, 2, 1;
+	unknown unless defined $character and $character;
+    if ($character eq 'p') { $self->_print($event, $self->phrase({language => 'Perl-only'})) }
+    elsif ($character eq 'c') { $self->_print($event, $self->phrase({language => 'C and perl'})) }
+    elsif ($character eq 'h') { $self->_print($event, $self->phrase({language => 'Hybrid'})) }
+    elsif ($character eq '+') { $self->_print($event, $self->phrase({language => 'C++ and perl'})) }
+    elsif ($character eq 'o') { $self->_print($event, $self->phrase({language => 'perl and another language other than C or C++'})) }
+	else { unknown }
+}
+
+sub mod_style :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the style of a module') {
+	my ($self, $event, $mod) = @_;
+    my $obj = $self->get('cp');
+    mod_existance_check $obj => $mod;
+	unknown unless defined $obj->{mods}->{$mod}->{dslip};
+	my $character = substr $obj->{mods}->{$mod}->{dslip}, 3, 1;
+	unknown unless defined $character and $character;
+    if ($character eq 'f') { $self->_print($event, $self->phrase({style => 'Plain Functions'})) }
+    elsif ($character eq 'h') { $self->_print($event, $self->phrase({style => 'Hybrid, object and function interfaces available'})) }
+    elsif ($character eq 'n') { $self->_print($event, $self->phrase({style => 'No interface'})) }
+    elsif ($character eq 'r') { $self->_print($event, $self->phrase({style => 'Some use of unblessed References or ties'})) }
+    elsif ($character eq 'O') { $self->_print($event, $self->phrase({style => 'Object oriented using blessed references and/or inheritance'})) }
+	else { unknown }
+}
+
+sub mod_license :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the license of a module') {
+	my ($self, $event, $mod) = @_;
+    my $obj = $self->get('cp');
+    mod_existance_check $obj => $mod;
+	unknown unless defined $obj->{mods}->{$mod}->{dslip};
+	my $character = substr $obj->{mods}->{$mod}->{dslip}, 4, 1;
+	unknown unless defined $character and $character;
+    if ($character eq 'p') { $self->_print($event, $self->phrase({license => 'Standard-Perl'})) }
+    elsif ($character eq 'g') { $self->_print($event, $self->phrase({license => 'GPL'})) }
+    elsif ($character eq 'l') { $self->_print($event, $self->phrase({license => 'LGPL'})) }
+    elsif ($character eq 'b') { $self->_print($event, $self->phrase({license => 'BSD'})) }
+    elsif ($character eq 'a') { $self->_print($event, $self->phrase({license => 'Artistic license'})) }
+    elsif ($character eq 'o') { $self->_print($event, $self->phrase({license => 'other'})) }
+	else { unknown }
+}
+
+sub top10 :Private(notice) :Public(privmsg) :Args(refuse)
+:Help('top 10 contributors to CPAN') {
+	my ($self, $event) = @_;
+    my $obj = $self->get('cp');
+	my %ids;
+	for my $dist (keys %{$obj->{dists}}) {
+		$ids{$obj->{dists}->{$dist}->{cpanid}}++;
+	}
+
+	my $count = 0;
+	my @top10;
+	for my $id (sort {$ids{$b} <=> $ids{$a}} keys %ids) {
+		last if $count > 9;
+		push @top10, "$id ($ids{$id})";
+		$count++;
+	}
+
+    $self->_print($event, $self->phrase({top10 => join ', ', @top10}));
+}
+
+sub id_name :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves a name from a PAUSE ID') {
+	my ($self, $event, $id) = @_;
+    my $obj = $self->get('cp');
+    $id = uc($id);
+    auth_existance_check $obj => $id;
+    unknown unless defined $obj->{auths}->{$id}->{fullname};
+    $self->_print($event, $self->phrase({name => $obj->{auths}->{$id}->{fullname}}));
+}
+
+sub id_email :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves an email from a PAUSE ID') {
+	my ($self, $event, $id) = @_;
+    my $obj = $self->get('cp');
+    $id = uc($id);
+    auth_existance_check $obj => $id;
+    unknown unless defined $obj->{auths}->{$id}->{email};
+    $self->_print($event, $self->phrase({email => $obj->{auths}->{$id}->{email}}));
+}
+
+sub mod_version :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the version of a module') {
+	my ($self, $event, $mod) = @_;
+    my $obj = $self->get('cp');
+    mod_existance_check $obj => $mod;
+    unknown unless defined $obj->{mods}->{$mod}->{version};
+    $self->_print($event, $self->phrase({mod_version => $obj->{mods}->{$mod}->{version}}));
+}
+
+sub mod_rturl :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the RT URL of a module') {
+	my ($self, $event, $mod) = @_;
+    my $obj = $self->get('cp');
+    mod_existance_check $obj => $mod;
+    $self->_print($event, $self->phrase({mod_rturl => "http://rt.cpan.org/Public/Dist/Display.html?Name=$mod"}));
+}
+
+sub mod_docurl :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the documentation URL of a module') {
+	my ($self, $event, $mod) = @_;
+    my $obj = $self->get('cp');
+    mod_existance_check $obj => $mod;
+    $self->_print($event, $self->phrase({mod_docurl => "http://search.cpan.org/perldoc?$mod"}));
+}
+
+sub mod_dist :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the distribution of a module') {
+	my ($self, $event, $mod) = @_;
+    my $obj = $self->get('cp');
+    mod_existance_check $obj => $mod;
+    unknown unless defined $obj->{mods}->{$mod}->{dist};
+    $self->_print($event, $self->phrase({mod_dist => $obj->{mods}->{$mod}->{dist}}));
+}
+
+sub mod_id :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the PAUSE ID of a module') {
+	my ($self, $event, $mod) = @_;
+    my $obj = $self->get('cp');
+    mod_existance_check $obj => $mod;
+    unknown unless defined $obj->{mods}->{$mod}->{dist};
+    unknown unless defined $obj->{dists}->{$obj->{mods}->{$mod}->{dist}}->{cpanid};
+    $self->_print($event, $self->phrase({mod_id => $obj->{dists}->{$obj->{mods}->{$mod}->{dist}}->{cpanid}}));
+}
+
+sub mod_desc :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the description of a module') {
+	my ($self, $event, $mod) = @_;
+    my $obj = $self->get('cp');
+    mod_existance_check $obj => $mod;
+    unknown unless defined $obj->{mods}->{$mod}->{description};
+    $self->_print($event, $self->phrase({mod_desc => $obj->{mods}->{$mod}->{description}}));
+}
+
+sub mod_chapter :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the chapter of a module') {
+	my ($self, $event, $mod) = @_;
+    my $obj = $self->get('cp');
+    mod_existance_check $obj => $mod;
+    unknown unless defined $obj->{mods}->{$mod}->{chapterid};
+    $self->_print($event, $self->phrase({mod_chapter => modlist_catid2desc($obj->{mods}->{$mod}->{chapterid})}));
+}
+
+sub mod_dslip :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the DSLIP of a module') {
+	my ($self, $event, $mod) = @_;
+    my $obj = $self->get('cp');
+    mod_existance_check $obj => $mod;
+    unknown unless defined $obj->{mods}->{$mod}->{dslip};
+    $self->_print($event, $self->phrase({mod_dslip => $obj->{mods}->{$mod}->{dslip}}));
+}
+
+sub mod_search :Private(notice) :Args(required) :Fork :LowPrio
+:Help('search for a module') {
+	my ($self, $event, $mod) = @_;
+    my $obj = $self->get('cp');
+
+    if ($mod !~ /^[A-Za-z0-9]+$/) {
+        $self->_print($event, $self->phrase('BAD_SEARCH_TERMS'));
+	    return;
+    }
+
+	my @found;
+	for my $module (keys %{$obj->{mods}}) {
+		push @found, $module if $module =~ /$mod/;
+	}
+
+    if (scalar @found > 0) {
+        while (my @results = splice @found, 0, 15) {
+            $self->_print($event, $self->phrase({mod_search => join ', ', @results}));
+        }
+    }
+    else {
+        $self->_print($event, $self->phrase('NO_RESULTS'));
+    }
+}
+
+sub dist_version :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the version of a distribution') {
+	my ($self, $event, $dist) = @_;
+    my $obj = $self->get('cp');
+    dist_existance_check $obj => $dist;
+    unknown unless defined $obj->{dists}->{$dist}->{version};
+    $self->_print($event, $self->phrase({dist_version => $obj->{dists}->{$dist}->{version}}));
+}
+
+sub dist_dlurl :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the download URL of a distribution') {
+	my ($self, $event, $dist) = @_;
+    my $obj = $self->get('cp');
+    dist_existance_check $obj => $dist;
+	unknown unless defined $obj->{dists}->{$dist}->{filename};
+	unknown unless defined $obj->{dists}->{$dist}->{cpanid};
+	my $filename = $obj->{dists}->{$dist}->{filename};
+	my $id = $obj->{dists}->{$dist}->{cpanid};
+	my $url = 'http://search.cpan.org/CPAN/authors/id/';
+	my $dir = substr $id, 0, 1;
+	my $sub_dir = substr $id, 0, 2;
+    $self->_print($event, $self->phrase({dist_dlurl => $url . "$dir/" . "$sub_dir/" . "$id/" . $filename}));
+}
+
+sub dist_path :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the path to a distribution') {
+	my ($self, $event, $dist) = @_;
+    my $obj = $self->get('cp');
+    dist_existance_check $obj => $dist;
+	unknown unless defined $obj->{dists}->{$dist}->{filename};
+	unknown unless defined $obj->{dists}->{$dist}->{cpanid};
+	my $filename = $obj->{dists}->{$dist}->{filename};
+	my $id = $obj->{dists}->{$dist}->{cpanid};
+	my $dir = substr $id, 0, 1;
+	my $sub_dir = substr $id, 0, 2;
+    $self->_print($event, $self->phrase({dist_path => "\$CPAN/authors/id/" . "$dir/" . "$sub_dir/" . "$id/" . $filename}));
+}
+
+sub dist_filename :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the filename of a distribution') {
+	my ($self, $event, $dist) = @_;
+    my $obj = $self->get('cp');
+    dist_existance_check $obj => $dist;
+    unknown unless defined $obj->{dists}->{$dist}->{filename};
+    $self->_print($event, $self->phrase({dist_filename => $obj->{dists}->{$dist}->{filename}}));
+}
+
+sub dist_id :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves PAUSE ID of a distribution') {
+	my ($self, $event, $dist) = @_;
+    my $obj = $self->get('cp');
+    dist_existance_check $obj => $dist;
+    unknown unless defined $obj->{dists}->{$dist}->{cpanid};
+    $self->_print($event, $self->phrase({dist_id => $obj->{dists}->{$dist}->{cpanid}}));
+}
+
+sub dist_desc :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves description of a distribution') {
+	my ($self, $event, $dist) = @_;
+    my $obj = $self->get('cp');
+    dist_existance_check $obj => $dist;
+    unknown unless defined $obj->{dists}->{$dist}->{description};
+    $self->_print($event, $self->phrase({dist_desc => $obj->{dists}->{$dist}->{description}}));
+}
+
+sub dist_url :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves URL of a distribution') {
+	my ($self, $event, $dist) = @_;
+    my $obj = $self->get('cp');
+    dist_existance_check $obj => $dist;
+    $self->_print($event, $self->phrase({dist_url => "http://search.cpan.org/dist/$dist/"}));
+}
+
+sub dist_size :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the size of a distribution') {
+	my ($self, $event, $dist) = @_;
+    my $obj = $self->get('cp');
+    dist_existance_check $obj => $dist;
+    unknown unless defined $obj->{dists}->{$dist}->{size};
+    $self->_print($event, $self->phrase({dist_size => $obj->{dists}->{$dist}->{size}}));
+}
+
+sub dist_date :Private(notice) :Public(privmsg) :Args(required)
+:Help('retrieves the release date of a distribution') {
+	my ($self, $event, $dist) = @_;
+    my $obj = $self->get('cp');
+    dist_existance_check $obj => $dist;
+    unknown unless defined $obj->{dists}->{$dist}->{date};
+    $self->_print($event, $self->phrase({dist_date => $obj->{dists}->{$dist}->{date}}));
+}
+
+sub dist_search :Private(notice) :Args(required) :Fork :LowPrio
+:Help('search for a distribution') {
+	my ($self, $event, $dist) = @_;
+    my $obj = $self->get('cp');
+
+    if ($dist !~ /^[A-Za-z0-9]+$/) {
+        $self->_print($event, $self->phrase('BAD_SEARCH_TERMS'));
+	    return;
+    }
+
+	my @found;
+	for my $distribution (keys %{$obj->{dists}}) {
+		push @found, $distribution if $distribution =~ /$dist/;
+	}
+
+    if (scalar @found > 0) {
+        while (my @results = splice @found, 0, 15) {
+            $self->_print($event, $self->phrase({dist_search => join ', ', @results}));
+        }
+    }
+    else {
+        $self->_print($event, $self->phrase('NO_RESULTS'));
+    }
+}
+
+sub dist_mods :Private(notice) :Args(required) :Fork :LowPrio
+:Help('lists all modules in a distribution') {
+	my ($self, $event, $dist) = @_;
+    my $obj = $self->get('cp');
+    dist_existance_check $obj => $dist;
+	if (not exists $obj->{dists}->{$dist}->{modules}) {
+        $self->_print($event, $self->phrase('NO_MODULES_IN_DISTRIBUTION', {dist => $dist}));
+        return;
+    }
+	if (not ref $obj->{dists}->{$dist}->{modules} eq 'HASH') {
+        $self->_print($event, $self->phrase('NO_MODULES_IN_DISTRIBUTION', {dist => $dist}));
+        return;
+    }
+	if (not scalar keys %{$obj->{dists}->{$dist}->{modules}} > 0) {
+        $self->_print($event, $self->phrase('NO_MODULES_IN_DISTRIBUTION', {dist => $dist}));
+        return;
+    }
+	my @mods;
+    for my $module (keys %{$obj->{dists}->{$dist}->{modules}}) {
+		push @mods, $module;
+    }
+
+    if (scalar @mods > 0) {
+        while (my @results = splice @mods, 0, 15) {
+            $self->_print($event, $self->phrase({dist_mods => join ', ', @results}));
+        }
+    }
+    else {
+        $self->_print($event, $self->phrase('NO_RESULTS'));
+    }
+}
+
+sub dist_chapter :Private(notice) :Public(privmsg) :Args(required)
+:Help('lists the chapter of a distribution') {
+	my ($self, $event, $dist) = @_;
+    my $obj = $self->get('cp');
+    dist_existance_check $obj => $dist;
+	if (not exists $obj->{dists}->{$dist}->{chapterid}) {
+        $self->_print($event, $self->phrase('NO_CHAPTER_FOR_DISTRIBUTION', {dist => $dist}));
+        return;
+    }
+	if (not ref $obj->{dists}->{$dist}->{chapterid} eq 'HASH') {
+        $self->_print($event, $self->phrase('NO_CHAPTER_FOR_DISTRIBUTION', {dist => $dist}));
+        return;
+    }
+	if (not scalar keys %{$obj->{dists}->{$dist}->{chapterid}} > 0) {
+        $self->_print($event, $self->phrase('NO_CHAPTER_FOR_DISTRIBUTION', {dist => $dist}));
+        return;
+    }
+	my %chapters_pre;
+    for my $id (keys %{$obj->{dists}->{$dist}->{chapterid}}) {
+		for my $sc (keys %{$obj->{dists}->{$dist}->{chapterid}->{$id}}) {
+			push @{$chapters_pre{modlist_catid2desc($id)}}, $sc; 
+		}
+	}
+
+	my @chapters_post;
+
+	for my $key (sort {$a cmp $b} keys %chapters_pre) {
+		my $subs = join ', ', @{$chapters_pre{$key}};
+		push @chapters_post, "$key > $subs";
+	}
+
+    $self->_print($event, $self->phrase({dist_chapter => join '; ', @chapters_post}));
 }
 
 1;

@@ -1,5 +1,39 @@
 Revision history for Perl extension Bot::CPAN.
 
+1.10  Tue Jul 04 19:00:00 2006
+      - Added exception handling classes for certain events
+      - Removed dependency on CPANPLUS
+      - Added dependency on CPAN::Search::Lite::Info for indexing
+      - Merged in latest changes from Bot::BasicBot
+      - Accounted for recent changes in POE and POE::Component::IRC
+      - Resolved an issue with Attribute::Handlers (Invalid CODE attributes)
+      - Resolved an issue with Bot::BasicBot (Can't encode object)
+      - Resolved an issue where forked off operations wouldn't be reaped
+      - Resolved several miscellaneous minor issues
+      - The bot will now report on new CPAN ratings in addition to uploads
+      - Added new option 'inform_channel_of_new_ratings'
+      - Added support for a NICKSERV password, i.e., on freenode
+      - Added new option 'nickserv_password'
+      - SIGNATURE now based on new key; old key expired
+      - Corrected an issue where spurious "1"'s appeared after certain cmds
+      - Corrected an issue where users where not addressed in forked cmds
+      - Internal cleanup in several areas
+      - The bot no longer considers "$botname\s+$command" as being addressed
+      - Deprecated the 'reviews' command; cpanratings no longer supports rss here
+      - Deprecated the 'wikiurl' command; this resource no longer exists
+      - Deprecated the 'readme' command; excessive resource consumption
+      - Deprecated the 'package' command; replaced by an alternative
+      - Deprecated the 'modules' command; non-sensical command
+      - Deprecated the 'modulelist' command; may re-add in the future
+      - Deprecated the 'details' command; may re-add in the future
+      - Added many new commands; see the documentation
+      - Commands now follow a consistent naming convention
+      - Added new script that regenerates the indices as a separate process
+      - Added more tests
+      - Fixed a few ostensibly nasty memory leaks
+      - Bot can now (easily) run unprivileged
+      - search_max_results semi-deprecated; applicable commands /msg only
+
 1.7  Thu Aug 28 05:28:04 2003
       - Added new test suite 'phrases.t', with 68 tests
       - All messages abstracted out to lib/Bot/CPAN/phrases.xml, thanks to
