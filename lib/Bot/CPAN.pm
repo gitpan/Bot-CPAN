@@ -1,5 +1,5 @@
-# $Revision: 1.10 $
-# $Id: CPAN.pm,v 1.10 2006/07/04 23:02:46 afoxson Exp $
+# $Revision: 1.11 $
+# $Id: CPAN.pm,v 1.11 2006/07/04 23:27:24 afoxson Exp $
 #
 # Bot::CPAN - provides CPAN services via IRC
 # Copyright (c) 2006 Adam J. Foxson. All rights reserved.
@@ -34,7 +34,7 @@ use XML::RSS::Parser;
 use Storable;
 
 @ISA = qw(Bot::CPAN::Glue);
-($VERSION) = '$Revision: 1.10 $' =~ /\s+(\d+\.\d+)\s+/;
+($VERSION) = '$Revision: 1.11 $' =~ /\s+(\d+\.\d+)\s+/;
 
 sub dist_existance_check {
     my ($obj, $dist) = @_;

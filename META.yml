@@ -33,4 +33,4 @@ requires:
   URI: 1.35
   XML::Parser: 2.34
   XML::RSS::Parser: 4
-version: 1.10
+version: 1.11

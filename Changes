@@ -1,5 +1,9 @@
 Revision history for Perl extension Bot::CPAN.
 
+1.11  Tue Jul 04 20:00:00 2006
+      - Oops, forgot to regenerate README!
+      - See changes in 1.10 for the latest updates
+
 1.10  Tue Jul 04 19:00:00 2006
       - Added exception handling classes for certain events
       - Removed dependency on CPANPLUS

@@ -6,17 +6,19 @@ SYNOPSIS
 
       my $bot = Bot::CPAN->new(
           channels => ['#cpan'],
-          servers => ['grou.ch', 'bullfrog.rhizomatic.net'],
+          servers => ['irc.perl.org', 'irc.freenode.net'],
           port => 6667,
           nick => 'cpantest',
           alt_nicks => ['cpantest2', 'cpantest3'],
           username => 'cpantest',
           name => 'cpantest',
+          nickserv_password => 'top_secret_password',
           ignore_list => [qw(purl)],
           news_server => 'nntp.perl.org',
           group => 'perl.cpan.testers',
           reload_indices_interval => 300,
           inform_channel_of_new_uploads => 60,
+          inform_channel_of_new_ratings => 60,
           debug => 0,
           search_max_results => 30,
           adminhost =>
@@ -36,15 +38,14 @@ DESCRIPTION
     Bot::CPAN is a POE based distribution that allows individuals on IRC to
     query the CPAN and other perl resources in a great number of different
     ways. Bot::CPAN will also automatically inform the channels of new
-    uploads to the CPAN.
+    uploads to the CPAN, and new ratings of CPAN distributions.
 
 IRC EXAMPLES
-      cpan: version of Test::Reporter
-      cpan: modulelist contains Test::Reporter
-      cpan: tests for Test::Reporter
-      cpan: details on Test::Reporter
-      cpan: path to Test::Reporter
-      cpan: readme from Test::Reporter
+      cpan: recent
+      cpan: top10
+      cpan: id_name for FOX
+      cpan: mod_desc for Test::Reporter
+      cpan: dist_version for Bot-CPAN
 
 METHODS
     * new
@@ -53,8 +54,9 @@ METHODS
         servers, port, nick, alt_nicks, username, name, ignore_list, store,
         and log. Bot::CPAN extends the Bot::CPAN::BasicBot constructor to
         accept the following named parameters: news_server, group,
-        reload_indices_interval, inform_channel_of_new_uploads, debug,
-        search_max_results, policy and adminhost.
+        reload_indices_interval, inform_channel_of_new_uploads,
+        inform_channel_of_new_ratings, debug, search_max_results,
+        nickserv_password, policy and adminhost.
 
     * run
         Fires up the bot.
@@ -89,8 +91,14 @@ CONSTRUCTOR OPTIONS
     * inform_channel_of_new_uploads
         Number of seconds between checks for new CPAN uploads.
 
+    * inform_channel_of_new_ratings
+        Number of seconds between checks for new CPAN ratings.
+
     * name
         The name that the bot will identify itself as.
+
+    * nickserv_password
+        Password for IRC networks that use NICKSERV.
 
     * news_server
         The NNTP server to retrieve articles from.
@@ -109,6 +117,7 @@ CONSTRUCTOR OPTIONS
 
     * search_max_results
         Maximum numer of results to return via the 'search' command.
+        (semi-deprecated)
 
     * servers
         The servers that the bot should attempt to connect to. One will be
@@ -118,92 +127,119 @@ CONSTRUCTOR OPTIONS
         The username we'll claim to have at our ip/domain.
 
 COMMANDS
-    * author
-        retrieves the author of a module
-
     * botsnack
         gives the bot a snack
 
     * config
-        shows the bots configuration details
-
-    * description
-        retrieves the description of a module
-
-    * details
-        retrieves full details of a module
-
-    * distributions
-        retrieves all of the distributions by an author
-
-    * dlurl
-        retrieves the download url of a module
-
-    * docurl
-        retrieves the url of a module's documentation
+        Shows the bot's configuration (admin only)
 
     * help
         provides instruction on how to use this bot
 
-    * language
-        retrieves the language of a module
-
-    * modulelist
-        determines if a given module is in the Module List
-
-    * modules
-        retrieves the modules created by a given author
-
-    * package
-        retrieves the package of a module
-
-    * path
-        retrieves the full CPAN path of a module
-
-    * readme
-        sends README for module via DCC CHAT
+    * proxy
+        proxies an emote (admin only)
 
     * recent
         shows last ten distributions uploaded to the CPAN
 
-    * ratings
-        retrives ratings of a distribution
-
-    * reviews
-        retrives reviews of a distribution
-
-    * rt
-        retrieves the RT www path to a module
-
-    * search
-        returns modules that match a regex
-
-    * stage
-        retrieves the stage of a module
-
     * status
         retrieves the status of the bot
 
-    * style
-        retrieves the style of a module
+    * top10
+        top 10 contributors to CPAN
 
-    * support
+    * id_dists
+        shows all distributions of an author
+
+    * id_email
+        retrieves an email from a PAUSE ID
+
+    * id_name
+        retrieves a name from a PAUSE ID
+
+    * mod_chapter
+        retrieves the chapter of a module
+
+    * mod_desc
+        retrieves the description of a module
+
+    * mod_dist
+        retrieves the distribution of a module
+
+    * mod_docurl
+        retrieves the documentation URL of a module
+
+    * mod_dslip
+        retrieves the DSLIP of a module
+
+    * mod_id
+        retrieves the PAUSE ID of a module
+
+    * mod_language
+        retrieves the language of a module
+
+    * mod_license
+        retrieves the license of a module
+
+    * mod_rturl
+        retrieves the RT URL of a module
+
+    * mod_stage
+        retrieves the stage of a module
+
+    * mod_search
+        search for a module
+
+    * mod_support
         retrieves the support level of a module
 
-    * tests
-        retrieves the test results of a module
+    * mod_style
+        retrieves the style of a module
 
-    * url
-        retrieves the www path to a module
+    * mod_version
+        retrieves the version of a module
 
-    * version
-        retrieves the latest version of a module
+    * dist_chapter
+        lists the chapter of a distribution
 
-    * whois
-        gets an author's name and email from a CPAN ID
+    * dist_date
+        retrieves the release date of a distribution
 
-    * wikiurl
-        retrieves the url of a module's wiki page
+    * dist_desc
+        retrieves description of a distribution
+
+    * dist_dlurl
+        retrieves the download URL of a distribution
+
+    * dist_filename
+        retrieves the filename of a distribution
+
+    * dist_id
+        retrieves PAUSE ID of a distribution
+
+    * dist_mods
+        lists all modules in a distribution
+
+    * dist_path
+        retrieves the path to a distribution
+
+    * dist_ratings
+        retrives ratings of a distribution
+
+    * dist_search
+        earch for a distribution
+
+    * dist_size
+        retrieves the size of a distribution
+
+    * dist_tests
+        shows tests results for a distribution
+
+    * dist_url
+        retrieves URL of a distribution
+
+    * dist_version
+        retrieves the version of a distribution
 
 ATTRIBUTES
     * :Admin
@@ -306,7 +342,9 @@ RATINGS
 
 CAVEATS
     If you expect the bot to have very recent CPAN data, be sure that
-    CPANPLUS is set to get indexes directly from ftp.funet.fi.
+    reindexing is set to get indexes directly from ftp.funet.fi. Even then,
+    those indices are only updated on the funet end about once an hour or
+    so.
 
     Bot::CPAN::BasicBot's alt_nicks doesn't do what you think. It's NOT for
     specifying alternate nicks to use for connecting to IRC if the one you
@@ -316,13 +354,18 @@ CAVEATS
 
 BUGS
     If you happen to find one please email me at afoxson@pobox.com. Thank
-    you.
+    you. Or, better yet, report it on RT.
 
 TODO
-      - Defer adding 'bugs' command until CPANPLUS::Backend supports RT's API
-      - Add support for "pacing" (suggested by Spoon) i.e., if several uploads
+      - Add support for "throttling" (suggested by Spoon) i.e., if several uploads
         occur at the same time, pace the reporting of such to a pre-determined
         number of upload notification per minute
+      - Consider re-adding 'modulelist'
+      - Consider re-adding 'details'
+      - Consider re-supporting search_max_results
+      - Improve 'recent' so it has a full recent list on connect
+      - Improve memory profile
+      - Investigate forking reindexing and checking for new uploads/ratings
 
 COPYRIGHT
       Copyright (c) 2003 Adam J. Foxson. All rights reserved.
@@ -341,25 +384,29 @@ LICENSE
 
 SEE ALSO
     * perl
-    * Attribute::Handlers
-    * Bot::BasicBot
-    * Config::Auto
-    * CPANPLUS
-    * Encode
-    * Getopt::Long
     * HTTP::Request
+    * XML::Parser
+    * URI
     * LWP::UserAgent
-    * Module::CPANTS
-    * Module::Signature
-    * POE
-    * POE::Component::IRC
     * Mail::Internet
     * Math::Round
     * Net::NNTP
+    * POE
     * Statistics::Descriptive
-    * URI
-    * XML::Parser
     * XML::RSS::Parser
+    * POE::Component::IRC
+    * Text::Wrap
+    * Error
+    * Class::Phrasebook
+    * Attribute::Handlers
+    * Storable
+    * CPAN::DistnameInfo
+    * Compress::Zlib
+    * File::Listing
+    * Sort::Versions
+    * Encode
+    * Config::Auto
+    * Getopt::Long
 
 AUTHORS
     Adam J. Foxson <afoxson@pobox.com>, with patches from Casey West
